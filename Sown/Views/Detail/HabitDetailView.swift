@@ -726,7 +726,7 @@ struct HabitStatsSection: View {
                     label: "30-Day Rate"
                 )
 
-                let totalCompletions = habit.dailyLogs.filter { $0.completed }.count
+                let totalCompletions = (habit.dailyLogs ?? []).filter { $0.completed }.count
                 StatCard(
                     icon: "checkmark.circle.fill",
                     iconColor: JournalTheme.Colors.goodDayGreenDark,
@@ -829,7 +829,7 @@ struct HobbyLogsSection: View {
     @State private var selectedLogDate: HobbyLogSelection? = nil
 
     private var completedLogs: [DailyLog] {
-        habit.dailyLogs
+        (habit.dailyLogs ?? [])
             .filter { $0.completed }
             .sorted { $0.date > $1.date }
     }

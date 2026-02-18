@@ -6,12 +6,13 @@ import SwiftData
 /// then permanently locked as read-only.
 @Model
 final class EndOfDayNote {
-    var id: UUID
-    var date: Date              // startOfDay — one note per day
-    var note: String
-    var fulfillmentScore: Int   // 1–10 scale
-    var createdAt: Date
-    var isLocked: Bool          // true after the grace period
+    // CloudKit requires default values for all non-optional properties
+    var id: UUID = UUID()
+    var date: Date = Date()              // startOfDay — one note per day
+    var note: String = ""
+    var fulfillmentScore: Int = 5   // 1–10 scale
+    var createdAt: Date = Date()
+    var isLocked: Bool = false          // true after the grace period
 
     init(
         id: UUID = UUID(),

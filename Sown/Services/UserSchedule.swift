@@ -8,17 +8,29 @@ final class UserSchedule {
 
     /// Minutes from midnight for wake time (default 7:00 AM = 420)
     var wakeTimeMinutes: Int {
-        didSet { save() }
+        didSet {
+            save()
+            // Sync to cloud if enabled
+            CloudSettingsService.shared.updateSetting("userWakeTimeMinutes", value: wakeTimeMinutes)
+        }
     }
 
     /// Minutes from midnight for bed time (default 11:00 PM = 1380)
     var bedTimeMinutes: Int {
-        didSet { save() }
+        didSet {
+            save()
+            // Sync to cloud if enabled
+            CloudSettingsService.shared.updateSetting("userBedTimeMinutes", value: bedTimeMinutes)
+        }
     }
 
     /// Whether smart reminders are enabled globally
     var smartRemindersEnabled: Bool {
-        didSet { save() }
+        didSet {
+            save()
+            // Sync to cloud if enabled
+            CloudSettingsService.shared.updateSetting("smartRemindersEnabled", value: smartRemindersEnabled)
+        }
     }
 
     // MARK: - Computed Times
@@ -93,6 +105,34 @@ final class UserSchedule {
         self.wakeTimeMinutes = storedWake > 0 ? storedWake : 420    // 7:00 AM
         self.bedTimeMinutes = storedBed > 0 ? storedBed : 1380      // 11:00 PM
         self.smartRemindersEnabled = defaults.bool(forKey: remindersKey)
+
+        // Listen for cloud settings changes
+        NotificationCenter.default.addObserver(
+            forName: .scheduleSettingsChanged,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.reloadFromDefaults()
+        }
+    }
+
+    /// Reload values from UserDefaults (called when cloud sync updates values)
+    private func reloadFromDefaults() {
+        let storedWake = defaults.integer(forKey: wakeKey)
+        let storedBed = defaults.integer(forKey: bedKey)
+
+        // Only update if values are different (avoid infinite loop from didSet)
+        if storedWake > 0 && storedWake != wakeTimeMinutes {
+            wakeTimeMinutes = storedWake
+        }
+        if storedBed > 0 && storedBed != bedTimeMinutes {
+            bedTimeMinutes = storedBed
+        }
+
+        let storedReminders = defaults.bool(forKey: remindersKey)
+        if storedReminders != smartRemindersEnabled {
+            smartRemindersEnabled = storedReminders
+        }
     }
 
     private func save() {

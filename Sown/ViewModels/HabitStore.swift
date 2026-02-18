@@ -741,7 +741,7 @@ final class HabitStore {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
 
-        let completedLogs = habit.dailyLogs
+        let completedLogs = (habit.dailyLogs ?? [])
             .filter { $0.completed }
             .sorted { $0.date > $1.date }
 

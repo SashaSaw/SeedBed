@@ -6,11 +6,16 @@ struct SettingsView: View {
     @State private var schedule = UserSchedule.shared
     @State private var showingBlockSetup = false
     @AppStorage("soundEffectsEnabled") private var soundEffectsEnabled = true
+    @State private var cloudSync = CloudSyncService.shared
+    @State private var showingRestartAlert = false
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
+                    // iCloud Backup section
+                    iCloudBackupCard
+
                     // Smart Reminders section
                     SmartReminderSettingsCard()
 
@@ -132,6 +137,11 @@ struct SettingsView: View {
                 BlockSetupView()
                     .onAppear { Feedback.sheetOpen() }
             }
+            .alert("Restart Required", isPresented: $showingRestartAlert) {
+                Button("OK") { }
+            } message: {
+                Text("Please restart the app for iCloud sync changes to take effect.")
+            }
             .onChange(of: schedule.wakeTimeMinutes) { _, _ in
                 store.refreshSmartReminders()
             }
@@ -229,5 +239,112 @@ struct SettingsView: View {
                 .font(.system(size: 14, weight: .medium, design: .monospaced))
                 .foregroundStyle(JournalTheme.Colors.amber)
         }
+    }
+
+    // MARK: - iCloud Backup Card
+
+    private var iCloudBackupCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Header
+            HStack {
+                Image(systemName: "icloud")
+                    .font(.custom("PatrickHand-Regular", size: 18))
+                    .foregroundStyle(JournalTheme.Colors.navy)
+
+                Text("iCloud Backup")
+                    .font(.custom("PatrickHand-Regular", size: 17))
+                    .foregroundStyle(JournalTheme.Colors.inkBlack)
+            }
+
+            // Toggle
+            HStack {
+                Text("Enable iCloud Sync")
+                    .font(.custom("PatrickHand-Regular", size: 15))
+                    .foregroundStyle(JournalTheme.Colors.inkBlack)
+
+                Spacer()
+
+                Toggle("", isOn: Binding(
+                    get: { cloudSync.isEnabled },
+                    set: { newValue in
+                        Feedback.selection()
+                        let wasEnabled = cloudSync.isEnabled
+                        cloudSync.isEnabled = newValue
+
+                        // Show restart alert when toggling
+                        if newValue != wasEnabled {
+                            showingRestartAlert = true
+                        }
+                    }
+                ))
+                .tint(JournalTheme.Colors.navy)
+                .labelsHidden()
+            }
+
+            // Status info (only shown when enabled)
+            if cloudSync.isEnabled {
+                VStack(spacing: 8) {
+                    // Backup status
+                    HStack {
+                        Text("Backup Status")
+                            .font(.custom("PatrickHand-Regular", size: 14))
+                            .foregroundStyle(JournalTheme.Colors.inkBlack)
+                        Spacer()
+                        Text(cloudSync.dataSizeFormatted)
+                            .font(.custom("PatrickHand-Regular", size: 14))
+                            .foregroundStyle(JournalTheme.Colors.completedGray)
+                    }
+
+                    // Last synced
+                    HStack {
+                        Text("Last synced")
+                            .font(.custom("PatrickHand-Regular", size: 14))
+                            .foregroundStyle(JournalTheme.Colors.inkBlack)
+                        Spacer()
+                        Text(cloudSync.lastSyncFormatted)
+                            .font(.custom("PatrickHand-Regular", size: 14))
+                            .foregroundStyle(JournalTheme.Colors.completedGray)
+                    }
+
+                    // Syncing indicator
+                    if cloudSync.isSyncing {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                            Text("Syncing...")
+                                .font(.custom("PatrickHand-Regular", size: 14))
+                                .foregroundStyle(JournalTheme.Colors.completedGray)
+                            Spacer()
+                        }
+                    }
+                }
+            }
+
+            // Footer text
+            Text("Your data syncs automatically when connected to the internet.")
+                .font(.custom("PatrickHand-Regular", size: 12))
+                .foregroundStyle(JournalTheme.Colors.completedGray)
+
+            // iCloud unavailable warning
+            if !cloudSync.isCloudAvailable && cloudSync.isEnabled {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.system(size: 12))
+                        .foregroundStyle(JournalTheme.Colors.amber)
+                    Text("iCloud unavailable. Sign in to iCloud in Settings.")
+                        .font(.custom("PatrickHand-Regular", size: 12))
+                        .foregroundStyle(JournalTheme.Colors.amber)
+                }
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(JournalTheme.Colors.paperLight)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(JournalTheme.Colors.lineLight, lineWidth: 1)
+        )
     }
 }

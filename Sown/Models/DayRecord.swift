@@ -5,9 +5,10 @@ import SwiftData
 /// Once locked at midnight, a good day cannot be undone by adding new habits.
 @Model
 final class DayRecord {
-    var id: UUID
-    var date: Date          // startOfDay
-    var isGoodDay: Bool
+    // CloudKit requires default values for all non-optional properties
+    var id: UUID = UUID()
+    var date: Date = Date()          // startOfDay
+    var isGoodDay: Bool = false
     var lockedAt: Date?     // when good day was locked in (midnight)
 
     init(

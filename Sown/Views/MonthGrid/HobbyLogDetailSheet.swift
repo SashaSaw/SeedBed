@@ -333,7 +333,7 @@ struct HobbyLogDetailSheet: View {
 
     private func loadData() {
         // Find the log for this date
-        currentLog = habit.dailyLogs.first { log in
+        currentLog = habit.dailyLogs?.first { log in
             Calendar.current.isDate(log.date, inSameDayAs: date) && log.completed
         }
 
@@ -469,7 +469,7 @@ struct GroupSubHabitLogView: View {
     }
 
     private func loadData() {
-        currentLog = habit.dailyLogs.first { log in
+        currentLog = habit.dailyLogs?.first { log in
             Calendar.current.isDate(log.date, inSameDayAs: date) && log.completed
         }
 

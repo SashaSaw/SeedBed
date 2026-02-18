@@ -3,13 +3,21 @@ import SwiftData
 
 @Model
 final class HabitGroup {
-    var id: UUID
-    var name: String
-    var tier: HabitTier
-    var requireCount: Int
-    var habitIds: [UUID]
-    var sortOrder: Int
-    var createdAt: Date
+    // CloudKit requires default values for all non-optional properties
+    // Note: Enum types use raw value storage for CloudKit compatibility
+    var id: UUID = UUID()
+    var name: String = ""
+    private var tierRawValue: String = HabitTier.mustDo.rawValue
+    var requireCount: Int = 1
+    var habitIds: [UUID] = []
+    var sortOrder: Int = 0
+    var createdAt: Date = Date()
+
+    /// Computed property for tier enum access
+    var tier: HabitTier {
+        get { HabitTier(rawValue: tierRawValue) ?? .mustDo }
+        set { tierRawValue = newValue.rawValue }
+    }
 
     init(
         id: UUID = UUID(),
@@ -22,7 +30,7 @@ final class HabitGroup {
     ) {
         self.id = id
         self.name = name
-        self.tier = tier
+        self.tierRawValue = tier.rawValue
         self.requireCount = requireCount
         self.habitIds = habitIds
         self.sortOrder = sortOrder

@@ -3,22 +3,42 @@ import SwiftData
 
 @Model
 final class Habit {
-    var id: UUID
-    var name: String
-    var habitDescription: String
-    var tier: HabitTier
-    var type: HabitType
-    var frequencyType: FrequencyType
-    var frequencyTarget: Int
+    // CloudKit requires default values for all non-optional properties
+    // Note: Enum types use raw value storage for CloudKit compatibility
+    var id: UUID = UUID()
+    var name: String = ""
+    var habitDescription: String = ""
+    private var tierRawValue: String = HabitTier.mustDo.rawValue
+    private var typeRawValue: String = HabitType.positive.rawValue
+    private var frequencyTypeRawValue: String = FrequencyType.daily.rawValue
+    var frequencyTarget: Int = 1
     var successCriteria: String?
     var groupId: UUID?
-    var currentStreak: Int
-    var bestStreak: Int
-    var isActive: Bool
-    var createdAt: Date
-    var sortOrder: Int
+    var currentStreak: Int = 0
+    var bestStreak: Int = 0
+    var isActive: Bool = true
+    var createdAt: Date = Date()
+    var sortOrder: Int = 0
     var isHobby: Bool = false
     @Attribute(.externalStorage) var iconImageData: Data? = nil
+
+    /// Computed property for tier enum access
+    var tier: HabitTier {
+        get { HabitTier(rawValue: tierRawValue) ?? .mustDo }
+        set { tierRawValue = newValue.rawValue }
+    }
+
+    /// Computed property for type enum access
+    var type: HabitType {
+        get { HabitType(rawValue: typeRawValue) ?? .positive }
+        set { typeRawValue = newValue.rawValue }
+    }
+
+    /// Computed property for frequencyType enum access
+    var frequencyType: FrequencyType {
+        get { FrequencyType(rawValue: frequencyTypeRawValue) ?? .daily }
+        set { frequencyTypeRawValue = newValue.rawValue }
+    }
 
     // Options: different ways to complete this habit (e.g. ["Gym", "Swim", "Run"] for "Exercise")
     var options: [String] = []
@@ -51,8 +71,9 @@ final class Habit {
     var weeklyNotificationTime: Int = 540         // Default 9:00 AM
 
     // Relationship to daily logs
+    // Note: CloudKit requires all relationships to be optional
     @Relationship(deleteRule: .cascade, inverse: \DailyLog.habit)
-    var dailyLogs: [DailyLog] = []
+    var dailyLogs: [DailyLog]?
 
     init(
         id: UUID = UUID(),
@@ -74,9 +95,9 @@ final class Habit {
         self.id = id
         self.name = name
         self.habitDescription = habitDescription
-        self.tier = tier
-        self.type = type
-        self.frequencyType = frequencyType
+        self.tierRawValue = tier.rawValue
+        self.typeRawValue = type.rawValue
+        self.frequencyTypeRawValue = frequencyType.rawValue
         self.frequencyTarget = frequencyTarget
         self.successCriteria = successCriteria
         self.groupId = groupId
@@ -133,7 +154,7 @@ extension Habit {
     func log(for date: Date) -> DailyLog? {
         let calendar = Calendar.current
         let startOfDay = calendar.startOfDay(for: date)
-        return dailyLogs.first { calendar.isDate($0.date, inSameDayAs: startOfDay) }
+        return dailyLogs?.first { calendar.isDate($0.date, inSameDayAs: startOfDay) }
     }
 
     /// Checks if the habit is completed for a specific date
@@ -151,7 +172,7 @@ extension Habit {
     /// Counts completions within a date range
     func completionCount(from startDate: Date, to endDate: Date) -> Int {
         let calendar = Calendar.current
-        return dailyLogs.filter { log in
+        return (dailyLogs ?? []).filter { log in
             log.completed &&
             calendar.compare(log.date, to: startDate, toGranularity: .day) != .orderedAscending &&
             calendar.compare(log.date, to: endDate, toGranularity: .day) != .orderedDescending

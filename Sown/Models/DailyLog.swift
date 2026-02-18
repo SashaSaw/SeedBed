@@ -3,9 +3,10 @@ import SwiftData
 
 @Model
 final class DailyLog {
-    var id: UUID
-    var date: Date
-    var completed: Bool
+    // CloudKit requires default values for all non-optional properties
+    var id: UUID = UUID()
+    var date: Date = Date()
+    var completed: Bool = false
     var value: Double?
     var note: String?
     var photoPath: String?        // Legacy single photo (kept for backward compat)
@@ -99,7 +100,11 @@ extension DailyLog {
             newLog.photoPaths = photoPaths
         }
         context.insert(newLog)
-        habit.dailyLogs.append(newLog)
+        // Initialize dailyLogs if nil (CloudKit requires optional relationships)
+        if habit.dailyLogs == nil {
+            habit.dailyLogs = []
+        }
+        habit.dailyLogs?.append(newLog)
         return newLog
     }
 }

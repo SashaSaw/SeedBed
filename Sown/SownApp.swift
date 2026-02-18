@@ -14,22 +14,26 @@ struct SownApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            Habit.self,
-            HabitGroup.self,
-            DailyLog.self,
-            DayRecord.self,
-            EndOfDayNote.self
-        ])
-        let modelConfiguration = ModelConfiguration(
-            schema: schema,
-            isStoredInMemoryOnly: false
-        )
-
         do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
+            // Use CloudSyncService to create container with appropriate iCloud settings
+            return try CloudSyncService.shared.makeModelContainer()
         } catch {
-            fatalError("Could not create ModelContainer: \(error)")
+            // Fallback to local-only container if cloud initialization fails
+            print("CloudKit container creation failed, falling back to local: \(error)")
+            let schema = Schema(versionedSchema: SownSchemaV1.self)
+            let modelConfiguration = ModelConfiguration(
+                schema: schema,
+                isStoredInMemoryOnly: false
+            )
+            do {
+                return try ModelContainer(
+                    for: schema,
+                    migrationPlan: SownMigrationPlan.self,
+                    configurations: [modelConfiguration]
+                )
+            } catch {
+                fatalError("Could not create ModelContainer: \(error)")
+            }
         }
     }()
 

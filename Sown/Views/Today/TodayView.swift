@@ -69,6 +69,15 @@ struct TodayContentView: View {
     @AppStorage("lastMorningPromptDate") private var lastMorningPromptDate: String = ""
     private var schedule: UserSchedule { UserSchedule.shared }
 
+    // Sort mode for Today view
+    @AppStorage("todaySortMode") private var sortModeRaw: String = TodaySortMode.byType.rawValue
+    private var sortMode: TodaySortMode {
+        TodaySortMode(rawValue: sortModeRaw) ?? .byType
+    }
+
+    // Track if we've already locked previous day this session (debounce)
+    @State private var hasLockedPreviousDay: Bool = false
+
     // HealthKit integration
     @State private var healthKitManager = HealthKitManager.shared
     @State private var healthKitCancellable: AnyCancellable?
@@ -108,25 +117,45 @@ struct TodayContentView: View {
             // Scrollable content
             ScrollView {
                 VStack(spacing: 0) {
-                    // Header — left aligned
-                    VStack(alignment: .leading, spacing: 0) {
-                        if !userName.isEmpty {
-                            Text(greetingText)
+                    // Header — left aligned with sort button on right
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 0) {
+                            if !userName.isEmpty {
+                                Text(greetingText)
+                                    .font(.custom("PatrickHand-Regular", size: 15))
+                                    .foregroundStyle(JournalTheme.Colors.completedGray)
+                                    .padding(.bottom, 2)
+                            }
+
+                            Text("Todays to-dos")
+                                .font(JournalTheme.Fonts.title())
+                                .foregroundStyle(JournalTheme.Colors.inkBlack)
+
+                            Text(formattedDate)
                                 .font(.custom("PatrickHand-Regular", size: 15))
                                 .foregroundStyle(JournalTheme.Colors.completedGray)
-                                .padding(.bottom, 2)
+                                .padding(.top, 4)
                         }
 
-                        Text("Todays to-dos")
-                            .font(JournalTheme.Fonts.title())
-                            .foregroundStyle(JournalTheme.Colors.inkBlack)
+                        Spacer()
 
-                        Text(formattedDate)
-                            .font(.custom("PatrickHand-Regular", size: 15))
-                            .foregroundStyle(JournalTheme.Colors.completedGray)
-                            .padding(.top, 4)
+                        // Sort mode toggle button
+                        Button {
+                            Feedback.selection()
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                sortModeRaw = (sortMode == .byType)
+                                    ? TodaySortMode.byTimeOfDay.rawValue
+                                    : TodaySortMode.byType.rawValue
+                            }
+                        } label: {
+                            Image(systemName: "arrow.up.arrow.down")
+                                .font(.system(size: 18, weight: .medium))
+                                .foregroundStyle(JournalTheme.Colors.inkBlue)
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, contentPadding)
                     .padding(.top, userName.isEmpty ? lineHeight : lineHeight / 2)
                     .padding(.bottom, 8)
@@ -137,27 +166,49 @@ struct TodayContentView: View {
                     // Block status indicator
                     blockStatusBanner
 
-                    // Sections
+                    // Sections - conditionally show by type or by time of day
                     VStack(spacing: 24) {
-                        // ◇ TODAY ONLY Section (uncompleted tasks only)
-                        todayOnlySection
+                        if sortMode == .byType {
+                            // Original "By Type" layout
+                            // ◇ TODAY ONLY Section (uncompleted tasks only)
+                            todayOnlySection
 
-                        // ★ MUST DO Section
-                        mustDoSection
+                            // ★ MUST DO Section
+                            mustDoSection
 
-                        // NICE TO DO Section (uncompleted only)
-                        niceToDoSection
+                            // NICE TO DO Section (uncompleted only)
+                            niceToDoSection
 
-                        // DON'T DO Section (negative habits)
-                        dontDoSection
+                            // DON'T DO Section (negative habits)
+                            dontDoSection
 
-                        // DONE ✓ Section (completed nice-to-do + completed tasks)
-                        doneSection
+                            // DONE ✓ Section (completed nice-to-do + completed tasks)
+                            doneSection
+                        } else {
+                            // "By Time of Day" layout
+                            // ◇ TODAY ONLY Section stays at top
+                            todayOnlySection
+
+                            // ⏰ ANYTIME Section (habits without schedule times)
+                            anytimeSection
+
+                            // Time slot sections
+                            ForEach(TimeSlot.allCases, id: \.self) { slot in
+                                timeSlotSection(for: slot)
+                            }
+
+                            // DON'T DO Section stays separate
+                            dontDoSection
+
+                            // DONE ✓ Section
+                            doneSection
+                        }
 
                         // Daily reflection button
                         reflectionButton
                     }
                     .padding(.top, 16)
+                    .animation(.easeInOut(duration: 0.3), value: sortMode)
 
                     // Empty state
                     if store.habits.isEmpty {
@@ -371,8 +422,11 @@ struct TodayContentView: View {
             Text("The group '\(groupToDeleteAfterHabit?.name ?? "")' is now empty. Would you like to delete it?")
         }
         .onAppear {
-            // Lock yesterday's good day on app launch
-            store.lockPreviousDayIfNeeded()
+            // Lock yesterday's good day on app launch (only once per session)
+            if !hasLockedPreviousDay {
+                store.lockPreviousDayIfNeeded()
+                hasLockedPreviousDay = true
+            }
             wasGoodDay = store.isGoodDay(for: selectedDate)
             // Show group callout if first time seeing a group
             if !hasSeenGroupCallout && !store.groups.isEmpty {
@@ -426,11 +480,13 @@ struct TodayContentView: View {
                 // Check for morning tasks prompt when returning to app
                 checkMorningTasksPrompt()
 
-                // Refresh HealthKit values when app becomes active
-                Task {
-                    await healthKitManager.refreshValues(for: store.activeHealthKitMetrics)
+                // Refresh HealthKit values when app becomes active (background thread)
+                let manager = healthKitManager
+                let metrics = store.activeHealthKitMetrics
+                Task.detached(priority: .userInitiated) { [weak store] in
+                    await manager.refreshValues(for: metrics)
                     await MainActor.run {
-                        store.checkHealthKitCompletions(triggerNotification: false)
+                        store?.checkHealthKitCompletions(triggerNotification: false)
                     }
                 }
             }
@@ -474,14 +530,17 @@ struct TodayContentView: View {
         let activeMetrics = store.activeHealthKitMetrics
         guard !activeMetrics.isEmpty else { return }
 
-        // Enable background delivery for active metrics
-        healthKitManager.enableBackgroundDelivery(for: activeMetrics)
+        // Enable background delivery for active metrics (run on background thread to avoid blocking UI)
+        let manager = healthKitManager
+        Task.detached(priority: .userInitiated) {
+            manager.enableBackgroundDelivery(for: activeMetrics)
+        }
 
-        // Initial fetch
-        Task {
-            await healthKitManager.refreshValues(for: activeMetrics)
+        // Initial fetch on background thread
+        Task.detached(priority: .userInitiated) { [weak store] in
+            await manager.refreshValues(for: activeMetrics)
             await MainActor.run {
-                store.checkHealthKitCompletions(triggerNotification: false)
+                store?.checkHealthKitCompletions(triggerNotification: false)
             }
         }
 
@@ -904,6 +963,62 @@ struct TodayContentView: View {
         .buttonStyle(.plain)
         .padding(.horizontal, contentPadding)
         .padding(.top, 8)
+    }
+
+    // MARK: - Time of Day Sections
+
+    /// Anytime section - habits without any schedule times
+    @ViewBuilder
+    private var anytimeSection: some View {
+        let anytimeHabits = store.anytimeHabits(for: selectedDate)
+
+        if !anytimeHabits.isEmpty {
+            VStack(spacing: 0) {
+                sectionHeader("⏰ ANYTIME", color: JournalTheme.Colors.sectionHeader)
+
+                ForEach(anytimeHabits) { habit in
+                    TimeSlotHabitRow(
+                        habit: habit,
+                        groupName: store.groupName(for: habit),
+                        isCompleted: habit.isCompleted(for: selectedDate),
+                        lineHeight: lineHeight,
+                        onComplete: {
+                            store.setCompletion(for: habit, completed: true, on: selectedDate)
+                            handleCompletionOverlay(for: habit)
+                        },
+                        onUncomplete: { store.setCompletion(for: habit, completed: false, on: selectedDate) },
+                        onTap: { selectedHabit = habit }
+                    )
+                }
+            }
+        }
+    }
+
+    /// Section for a specific time slot
+    @ViewBuilder
+    private func timeSlotSection(for slot: TimeSlot) -> some View {
+        let slotHabits = store.habitsForTimeSlot(slot, on: selectedDate)
+
+        if !slotHabits.isEmpty {
+            VStack(spacing: 0) {
+                sectionHeader("\(slot.emoji) \(slot.displayName)", color: JournalTheme.Colors.sectionHeader)
+
+                ForEach(slotHabits) { habit in
+                    TimeSlotHabitRow(
+                        habit: habit,
+                        groupName: store.groupName(for: habit),
+                        isCompleted: habit.isCompleted(for: selectedDate),
+                        lineHeight: lineHeight,
+                        onComplete: {
+                            store.setCompletion(for: habit, completed: true, on: selectedDate)
+                            handleCompletionOverlay(for: habit)
+                        },
+                        onUncomplete: { store.setCompletion(for: habit, completed: false, on: selectedDate) },
+                        onTap: { selectedHabit = habit }
+                    )
+                }
+            }
+        }
     }
 
     /// Dashed "New today task" button — shown at bottom of done or today-only section
@@ -2713,6 +2828,253 @@ struct Triangle: Shape {
         path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
         path.closeSubpath()
         return path
+    }
+}
+
+/// A habit row for time-of-day view - shows colored type pill on right and optional group name
+struct TimeSlotHabitRow: View {
+    let habit: Habit
+    let groupName: String?
+    let isCompleted: Bool
+    let lineHeight: CGFloat
+    let onComplete: () -> Void
+    let onUncomplete: () -> Void
+    let onTap: () -> Void
+
+    // Swipe gesture state
+    @State private var strikethroughProgress: CGFloat
+    @State private var isDragging: Bool = false
+    @State private var hasPassedThreshold: Bool = false
+    @State private var textWidth: CGFloat = 0
+    @State private var resetTask: Task<Void, Never>? = nil
+
+    private let completionThreshold: CGFloat = 0.3
+
+    init(habit: Habit, groupName: String?, isCompleted: Bool, lineHeight: CGFloat,
+         onComplete: @escaping () -> Void,
+         onUncomplete: @escaping () -> Void,
+         onTap: @escaping () -> Void) {
+        self.habit = habit
+        self.groupName = groupName
+        self.isCompleted = isCompleted
+        self.lineHeight = lineHeight
+        self.onComplete = onComplete
+        self.onUncomplete = onUncomplete
+        self.onTap = onTap
+        self._strikethroughProgress = State(initialValue: isCompleted ? 1.0 : 0.0)
+        self._hasPassedThreshold = State(initialValue: isCompleted)
+    }
+
+    private var isVisuallyCompleted: Bool {
+        strikethroughProgress >= completionThreshold
+    }
+
+    /// Color for the type pill based on habit tier and type
+    private var pillColor: Color {
+        if habit.isTask {
+            return JournalTheme.Colors.teal
+        }
+        switch habit.tier {
+        case .mustDo:
+            return JournalTheme.Colors.amber
+        case .niceToDo:
+            return JournalTheme.Colors.navy
+        }
+    }
+
+    /// Label for the type pill
+    private var pillLabel: String {
+        if habit.isTask {
+            return "Task"
+        }
+        switch habit.tier {
+        case .mustDo:
+            return "Must"
+        case .niceToDo:
+            return "Nice"
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Rounded square checkbox
+            RoundedRectangle(cornerRadius: 6)
+                .strokeBorder(
+                    isVisuallyCompleted
+                        ? JournalTheme.Colors.inkBlue
+                        : JournalTheme.Colors.completedGray,
+                    lineWidth: 1.5
+                )
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(isVisuallyCompleted
+                            ? JournalTheme.Colors.inkBlue.opacity(0.1)
+                            : Color.clear)
+                )
+                .overlay {
+                    if isVisuallyCompleted {
+                        Image(systemName: "checkmark")
+                            .font(.custom("PatrickHand-Regular", size: 11))
+                            .foregroundStyle(JournalTheme.Colors.inkBlue)
+                    }
+                }
+                .frame(width: 20, height: 20)
+
+            // Habit text with strikethrough overlay
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(habit.name)
+                        .font(JournalTheme.Fonts.habitName())
+                        .foregroundStyle(
+                            isVisuallyCompleted
+                                ? JournalTheme.Colors.completedGray
+                                : JournalTheme.Colors.inkBlack
+                        )
+
+                    if let criteria = habit.successCriteria, !criteria.isEmpty {
+                        Text("(\(criteria))")
+                            .font(JournalTheme.Fonts.habitCriteria())
+                            .foregroundStyle(JournalTheme.Colors.completedGray)
+                    }
+                }
+                .background(
+                    GeometryReader { textGeometry in
+                        Color.clear
+                            .onAppear { textWidth = textGeometry.size.width }
+                            .onChange(of: textGeometry.size.width) { _, newWidth in
+                                textWidth = newWidth
+                            }
+                    }
+                )
+                .overlay(alignment: .leading) {
+                    StrikethroughLine(
+                        width: textWidth > 0 ? textWidth : 200,
+                        color: JournalTheme.Colors.inkBlue,
+                        progress: $strikethroughProgress
+                    )
+                }
+
+                // Group subtitle if habit is in a group
+                if let groupName = groupName {
+                    Text("from: \(groupName)")
+                        .font(.custom("PatrickHand-Regular", size: 11))
+                        .foregroundStyle(JournalTheme.Colors.completedGray)
+                        .italic()
+                }
+            }
+            .contentShape(Rectangle())
+            .gesture(completionGesture(hitboxWidth: textWidth > 0 ? textWidth : 200))
+
+            Spacer()
+
+            // Type pill on the right
+            Text(pillLabel)
+                .font(.custom("PatrickHand-Regular", size: 10))
+                .foregroundStyle(pillColor)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(
+                    Capsule()
+                        .fill(pillColor.opacity(0.12))
+                )
+        }
+        .frame(minHeight: 44)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 24)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if isCompleted {
+                withAnimation(JournalTheme.Animations.strikethrough) {
+                    strikethroughProgress = 0.0
+                    hasPassedThreshold = false
+                }
+                Feedback.undo()
+                onUncomplete()
+            } else {
+                onTap()
+            }
+        }
+        .onChange(of: isCompleted) { _, newValue in
+            if !isDragging {
+                withAnimation(JournalTheme.Animations.strikethrough) {
+                    strikethroughProgress = newValue ? 1.0 : 0.0
+                    hasPassedThreshold = newValue
+                }
+            }
+        }
+        .onChange(of: isDragging) { _, newValue in
+            if !newValue {
+                resetTask?.cancel()
+                resetTask = Task {
+                    try? await Task.sleep(nanoseconds: 100_000_000)
+                    if !Task.isCancelled {
+                        await MainActor.run {
+                            if !isCompleted && strikethroughProgress > 0 && strikethroughProgress < 1 {
+                                withAnimation(JournalTheme.Animations.strikethrough) {
+                                    strikethroughProgress = 0
+                                    hasPassedThreshold = false
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                resetTask?.cancel()
+            }
+        }
+    }
+
+    private func completionGesture(hitboxWidth: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 20, coordinateSpace: .local)
+            .onChanged { value in
+                let horizontal = abs(value.translation.width)
+                let vertical = abs(value.translation.height)
+                let translation = value.translation.width
+
+                guard horizontal > vertical, translation > 0 else { return }
+
+                Feedback.startSwiping()
+                isDragging = true
+
+                if !isCompleted {
+                    let forwardProgress = translation / hitboxWidth
+                    strikethroughProgress = max(0, min(1, forwardProgress))
+
+                    let currentlyPastThreshold = strikethroughProgress >= completionThreshold
+                    if currentlyPastThreshold != hasPassedThreshold {
+                        hasPassedThreshold = currentlyPastThreshold
+                        Feedback.thresholdCrossed()
+                    }
+                }
+            }
+            .onEnded { value in
+                isDragging = false
+                let translation = value.translation.width
+
+                guard translation > 0 else {
+                    Feedback.stopSwiping()
+                    return
+                }
+
+                if !isCompleted {
+                    if strikethroughProgress >= completionThreshold {
+                        withAnimation(JournalTheme.Animations.strikethrough) {
+                            strikethroughProgress = 1.0
+                        }
+                        Feedback.swipeCompleted()
+                        onComplete()
+                        hasPassedThreshold = true
+                    } else {
+                        withAnimation(JournalTheme.Animations.strikethrough) {
+                            strikethroughProgress = 0
+                        }
+                        Feedback.swipeCancelled()
+                        hasPassedThreshold = false
+                    }
+                } else {
+                    Feedback.stopSwiping()
+                }
+            }
     }
 }
 

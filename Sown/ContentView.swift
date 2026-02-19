@@ -131,7 +131,9 @@ struct ContentView: View {
             } else {
                 ProgressView()
                     .onAppear {
-                        habitStore = HabitStore(modelContext: modelContext)
+                        let store = HabitStore(modelContext: modelContext)
+                        store.prefetchDailyLogs()
+                        habitStore = store
                     }
             }
         }

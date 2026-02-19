@@ -6,6 +6,9 @@ struct SettingsView: View {
     @State private var schedule = UserSchedule.shared
     @State private var showingBlockSetup = false
     @AppStorage("soundEffectsEnabled") private var soundEffectsEnabled = true
+    @AppStorage("userName") private var userName = ""
+    @State private var editingName = ""
+    @State private var isEditingName = false
     @State private var cloudSync = CloudSyncService.shared
     @State private var showingRestartAlert = false
 
@@ -13,6 +16,9 @@ struct SettingsView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
+                    // Name/greeting section
+                    nameCard
+
                     // iCloud Backup section
                     iCloudBackupCard
 
@@ -154,6 +160,127 @@ struct SettingsView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Name Card
+
+    private var nameCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "person.circle")
+                    .font(.custom("PatrickHand-Regular", size: 18))
+                    .foregroundStyle(JournalTheme.Colors.teal)
+
+                Text("Your Name")
+                    .font(.custom("PatrickHand-Regular", size: 17))
+                    .foregroundStyle(JournalTheme.Colors.inkBlack)
+            }
+
+            if isEditingName {
+                // Editing mode
+                VStack(spacing: 12) {
+                    TextField("Enter your name", text: $editingName)
+                        .font(.custom("PatrickHand-Regular", size: 16))
+                        .padding(12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.white)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .strokeBorder(JournalTheme.Colors.lineLight, lineWidth: 1)
+                        )
+
+                    HStack(spacing: 12) {
+                        Button {
+                            Feedback.buttonPress()
+                            isEditingName = false
+                            editingName = userName
+                        } label: {
+                            Text("Cancel")
+                                .font(.custom("PatrickHand-Regular", size: 14))
+                                .foregroundStyle(JournalTheme.Colors.completedGray)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .strokeBorder(JournalTheme.Colors.lineLight, lineWidth: 1)
+                                )
+                        }
+                        .buttonStyle(.plain)
+
+                        Button {
+                            Feedback.buttonPress()
+                            userName = editingName.trimmingCharacters(in: .whitespaces)
+                            isEditingName = false
+                        } label: {
+                            Text("Save")
+                                .font(.custom("PatrickHand-Regular", size: 14))
+                                .foregroundStyle(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(JournalTheme.Colors.teal)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            } else {
+                // Display mode
+                HStack {
+                    if userName.isEmpty {
+                        Text("Not set")
+                            .font(.custom("PatrickHand-Regular", size: 15))
+                            .foregroundStyle(JournalTheme.Colors.completedGray)
+                            .italic()
+                    } else {
+                        Text(userName)
+                            .font(.custom("PatrickHand-Regular", size: 16))
+                            .foregroundStyle(JournalTheme.Colors.inkBlack)
+                    }
+
+                    Spacer()
+
+                    if !userName.isEmpty {
+                        Button {
+                            Feedback.buttonPress()
+                            userName = ""
+                        } label: {
+                            Image(systemName: "trash")
+                                .font(.system(size: 14))
+                                .foregroundStyle(JournalTheme.Colors.negativeRedDark)
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    Button {
+                        Feedback.buttonPress()
+                        editingName = userName
+                        isEditingName = true
+                    } label: {
+                        Text(userName.isEmpty ? "Add" : "Edit")
+                            .font(.custom("PatrickHand-Regular", size: 14))
+                            .foregroundStyle(JournalTheme.Colors.teal)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            Text("Your name appears in the daily greeting on the Today tab.")
+                .font(.custom("PatrickHand-Regular", size: 12))
+                .foregroundStyle(JournalTheme.Colors.completedGray)
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(JournalTheme.Colors.paperLight)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(JournalTheme.Colors.lineLight, lineWidth: 1)
+        )
     }
 
     // MARK: - Schedule Card

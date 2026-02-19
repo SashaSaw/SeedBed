@@ -32,6 +32,16 @@ final class HabitStore {
         fetchEndOfDayNotes()
     }
 
+    /// Prefetch all dailyLogs to avoid lazy loading delays when opening Month tab
+    func prefetchDailyLogs() {
+        Task.detached(priority: .userInitiated) {
+            // Access dailyLogs to trigger SwiftData to load them into memory
+            for habit in self.habits {
+                _ = habit.dailyLogs?.count
+            }
+        }
+    }
+
     private func fetchHabits() {
         let descriptor = FetchDescriptor<Habit>(
             predicate: #Predicate { $0.isActive },
@@ -714,6 +724,34 @@ final class HabitStore {
     /// Uncompleted standalone must-do habits for a given date
     func uncompletedStandaloneMustDoHabits(for date: Date) -> [Habit] {
         standalonePositiveMustDoHabits.filter { !$0.isCompleted(for: date) }
+    }
+
+    // MARK: - Time of Day Sorting
+
+    /// Returns habits without any schedule times (anytime habits) that are uncompleted
+    func anytimeHabits(for date: Date) -> [Habit] {
+        habits.filter { habit in
+            habit.type == .positive &&
+            !habit.isTask &&
+            habit.scheduleTimes.isEmpty &&
+            !habit.isCompleted(for: date)
+        }
+    }
+
+    /// Returns habits for a specific time slot that are uncompleted
+    func habitsForTimeSlot(_ slot: TimeSlot, on date: Date) -> [Habit] {
+        habits.filter { habit in
+            habit.type == .positive &&
+            !habit.isTask &&
+            habit.scheduleTimes.contains(slot.rawValue) &&
+            !habit.isCompleted(for: date)
+        }
+    }
+
+    /// Returns the group name for a habit if it belongs to a group, nil otherwise
+    func groupName(for habit: Habit) -> String? {
+        guard let groupId = habit.groupId else { return nil }
+        return groups.first { $0.id == groupId }?.name
     }
 
     // MARK: - Streak Calculation

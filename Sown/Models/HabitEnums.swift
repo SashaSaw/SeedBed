@@ -1,5 +1,47 @@
 import Foundation
 
+/// Sort mode for TodayView - determines how habits are organized
+enum TodaySortMode: String, Codable, CaseIterable, Sendable {
+    case byType = "by_type"
+    case byTimeOfDay = "by_time_of_day"
+
+    var displayName: String {
+        switch self {
+        case .byType: return "By Type"
+        case .byTimeOfDay: return "By Time"
+        }
+    }
+}
+
+/// Time slots for scheduling habits throughout the day
+enum TimeSlot: String, CaseIterable, Sendable {
+    case afterWake = "After Wake"
+    case morning = "Morning"
+    case duringTheDay = "During the Day"
+    case evening = "Evening"
+    case beforeBed = "Before Bed"
+
+    var emoji: String {
+        switch self {
+        case .afterWake: return "🌅"
+        case .morning: return "☀️"
+        case .duringTheDay: return "📋"
+        case .evening: return "🌆"
+        case .beforeBed: return "🌙"
+        }
+    }
+
+    var displayName: String {
+        switch self {
+        case .afterWake: return "AFTER WAKE"
+        case .morning: return "MORNING"
+        case .duringTheDay: return "DAYTIME"
+        case .evening: return "EVENING"
+        case .beforeBed: return "BEFORE BED"
+        }
+    }
+}
+
 /// Represents the tier/priority level of a habit
 enum HabitTier: String, Codable, CaseIterable, Sendable {
     case mustDo = "must_do"

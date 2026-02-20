@@ -1,5 +1,7 @@
 import Foundation
 import SwiftData
+import FamilyControls
+import ManagedSettings
 
 @Model
 final class Habit {
@@ -63,6 +65,12 @@ final class Habit {
     var healthKitMetricType: String? = nil
     var healthKitTarget: Double? = nil
     var healthKitAutoComplete: Bool = true
+
+    // Screen Time integration
+    // Stores opaque ApplicationToken as Data for SwiftData compatibility
+    @Attribute(.externalStorage) var screenTimeAppTokenData: Data? = nil
+    var screenTimeTarget: Int? = nil  // Target minutes
+    var screenTimeAutoComplete: Bool = true
 
     // Notification scheduling
     var notificationsEnabled: Bool = false
@@ -197,5 +205,60 @@ extension Habit {
     /// Whether this habit is linked to a HealthKit metric
     var isHealthKitLinked: Bool {
         healthKitMetric != nil && healthKitTarget != nil
+    }
+}
+
+// MARK: - Screen Time Extensions
+
+extension Habit {
+    /// Computed property to get/set Screen Time ApplicationToken
+    var screenTimeAppToken: ApplicationToken? {
+        get {
+            guard let data = screenTimeAppTokenData else { return nil }
+            return try? PropertyListDecoder().decode(ApplicationToken.self, from: data)
+        }
+        set {
+            screenTimeAppTokenData = try? PropertyListEncoder().encode(newValue)
+        }
+    }
+
+    /// Whether this habit is linked to a Screen Time app
+    var isScreenTimeLinked: Bool {
+        screenTimeAppToken != nil && screenTimeTarget != nil
+    }
+}
+
+// MARK: - Criteria Display
+
+extension Habit {
+    /// Returns a display string for the habit's success criteria (manual, HealthKit, or Screen Time)
+    var criteriaDisplayString: String? {
+        // Check HealthKit first
+        if let metric = healthKitMetric, let target = healthKitTarget {
+            let formatted = formatHealthKitTarget(target, for: metric)
+            return "\(formatted) \(metric.unit)"
+        }
+
+        // Check Screen Time
+        if isScreenTimeLinked, let target = screenTimeTarget {
+            return "\(target) min"
+        }
+
+        // Fall back to manual criteria
+        if let criteria = successCriteria, !criteria.isEmpty {
+            return criteria
+        }
+
+        return nil
+    }
+
+    /// Formats a HealthKit target value for display
+    private func formatHealthKitTarget(_ value: Double, for metric: HealthKitMetricType) -> String {
+        switch metric {
+        case .steps, .flightsClimbed, .activeEnergyBurned, .appleExerciseTime, .mindfulMinutes:
+            return String(format: "%.0f", value)
+        case .distanceWalkingRunning, .distanceCycling, .waterIntake, .sleepHours:
+            return String(format: "%.1f", value)
+        }
     }
 }

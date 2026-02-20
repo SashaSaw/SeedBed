@@ -1,5 +1,7 @@
 import SwiftUI
 import SwiftData
+import FamilyControls
+import ManagedSettings
 
 /// Redesigned detail view for a single habit — settings-row layout
 struct HabitDetailView: View {
@@ -17,7 +19,16 @@ struct HabitDetailView: View {
     @State private var editingPrompt = false
     @State private var editedPrompt: String = ""
     @State private var showHealthKitEditor = false
+    @State private var showMeasurementEditor = false
     @State private var healthKitManager = HealthKitManager.shared
+    @State private var screenTimeManager = ScreenTimeManager.shared
+
+    // Screen Time editing state
+    @State private var editingScreenTimeToken: ApplicationToken? = nil
+    @State private var editingScreenTimeTarget: Int = 30
+
+    // Selected measurement type (allows selection before configuring)
+    @State private var selectedMeasurementType: MeasurementType? = nil
 
     var body: some View {
         ScrollView {
@@ -214,17 +225,31 @@ struct HabitDetailView: View {
 
                         Divider().padding(.leading, 48)
 
-                        // Reminders
-                        settingsRow(
-                            icon: "bell.fill",
-                            iconColor: JournalTheme.Colors.amber,
-                            label: "Reminders",
-                            value: habit.notificationsEnabled ? "On" : "Off"
-                        ) {
-                            habit.notificationsEnabled.toggle()
-                            store.updateHabit(habit)
-                            Feedback.selection()
+                        // Reminders toggle
+                        HStack(spacing: 12) {
+                            Image(systemName: "bell.fill")
+                                .font(.custom("PatrickHand-Regular", size: 14))
+                                .foregroundStyle(JournalTheme.Colors.amber)
+                                .frame(width: 24)
+
+                            Text("Reminders")
+                                .font(JournalTheme.Fonts.habitName())
+                                .foregroundStyle(JournalTheme.Colors.inkBlack)
+
+                            Spacer()
+
+                            Toggle("", isOn: Binding(
+                                get: { habit.notificationsEnabled },
+                                set: { newValue in
+                                    Feedback.selection()
+                                    habit.notificationsEnabled = newValue
+                                    store.updateHabit(habit)
+                                }
+                            ))
+                            .labelsHidden()
+                            .tint(JournalTheme.Colors.amber)
                         }
+                        .padding(14)
 
                         Divider().padding(.leading, 48)
 
@@ -295,50 +320,6 @@ struct HabitDetailView: View {
 
                         Divider().padding(.leading, 48)
 
-                        // Success Criteria — structured editor
-                        if editingCriteria {
-                            VStack(alignment: .leading, spacing: 10) {
-                                HStack(spacing: 12) {
-                                    Image(systemName: "target")
-                                        .font(.custom("PatrickHand-Regular", size: 14))
-                                        .foregroundStyle(JournalTheme.Colors.successGreen)
-                                        .frame(width: 24)
-
-                                    Text("Success criteria")
-                                        .font(.custom("PatrickHand-Regular", size: 14))
-                                        .foregroundStyle(JournalTheme.Colors.inkBlack)
-
-                                    Spacer()
-
-                                    Button("Save") {
-                                        Feedback.buttonPress()
-                                        let criteriaString = CriteriaEditorView.buildCriteriaString(from: editedCriteria)
-                                        habit.successCriteria = criteriaString.isEmpty ? nil : criteriaString
-                                        store.updateHabit(habit)
-                                        editingCriteria = false
-                                    }
-                                    .font(.custom("PatrickHand-Regular", size: 14))
-                                    .foregroundStyle(JournalTheme.Colors.teal)
-                                }
-
-                                CriteriaEditorView(criteria: $editedCriteria)
-                            }
-                            .padding(14)
-                        } else {
-                            settingsRow(
-                                icon: "target",
-                                iconColor: JournalTheme.Colors.successGreen,
-                                label: "Success criteria",
-                                value: habit.successCriteria ?? "None"
-                            ) {
-                                Feedback.selection()
-                                editedCriteria = CriteriaEditorView.parseCriteriaString(habit.successCriteria)
-                                editingCriteria = true
-                            }
-                        }
-
-                        Divider().padding(.leading, 48)
-
                         // Time of Day — expandable
                         settingsRow(
                             icon: "clock.fill",
@@ -366,28 +347,26 @@ struct HabitDetailView: View {
                             .transition(.opacity.combined(with: .move(edge: .top)))
                         }
 
-                        // HealthKit Link (only show if HealthKit is available)
-                        if healthKitManager.isAvailable {
-                            Divider().padding(.leading, 48)
+                        Divider().padding(.leading, 48)
 
-                            settingsRow(
-                                icon: "heart.fill",
-                                iconColor: .red,
-                                label: "Apple Health",
-                                value: healthKitLinkSummary
-                            ) {
-                                Feedback.selection()
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    showHealthKitEditor.toggle()
-                                }
+                        // Measurement Type — unified dropdown
+                        settingsRow(
+                            icon: "target",
+                            iconColor: JournalTheme.Colors.successGreen,
+                            label: "Success metric",
+                            value: measurementTypeSummary
+                        ) {
+                            Feedback.selection()
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                showMeasurementEditor.toggle()
                             }
+                        }
 
-                            if showHealthKitEditor {
-                                healthKitEditorContent
-                                    .padding(.horizontal, 14)
-                                    .padding(.bottom, 14)
-                                    .transition(.opacity.combined(with: .move(edge: .top)))
-                            }
+                        if showMeasurementEditor {
+                            measurementEditorContent
+                                .padding(.horizontal, 14)
+                                .padding(.bottom, 14)
+                                .transition(.opacity.combined(with: .move(edge: .top)))
                         }
                     }
                     .background(
@@ -457,6 +436,52 @@ struct HabitDetailView: View {
             }
         } message: {
             Text("This will permanently delete '\(habit.name)' and all its history.")
+        }
+    }
+
+    // MARK: - Measurement Type
+
+    /// Returns the current measurement type for this habit
+    private var currentMeasurementType: MeasurementType {
+        if habit.isHealthKitLinked {
+            return .healthKit
+        } else if habit.isScreenTimeLinked {
+            return .screenTime
+        }
+        return .manual
+    }
+
+    /// Available measurement types based on authorization status
+    private var availableMeasurementTypes: [MeasurementType] {
+        var types: [MeasurementType] = [.manual]
+        if healthKitManager.isAuthorized || healthKitManager.isAvailable {
+            types.append(.healthKit)
+        }
+        if screenTimeManager.isAuthorized {
+            types.append(.screenTime)
+        }
+        return types
+    }
+
+    /// Summary text for the measurement type row
+    private var measurementTypeSummary: String {
+        switch currentMeasurementType {
+        case .manual:
+            if let criteria = habit.successCriteria, !criteria.isEmpty {
+                return "Manual (\(criteria))"
+            }
+            return "Manual"
+        case .healthKit:
+            if let metric = habit.healthKitMetric, let target = habit.healthKitTarget {
+                let formatted = HealthKitManager.shared.formatValue(target, for: metric)
+                return "Health (\(formatted) \(metric.unit))"
+            }
+            return "Health"
+        case .screenTime:
+            if let target = habit.screenTimeTarget {
+                return "Screen Time (\(target) min)"
+            }
+            return "Screen Time"
         }
     }
 
@@ -603,6 +628,184 @@ struct HabitDetailView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Measurement Editor Content
+
+    /// The effective measurement type (user selection or derived from habit)
+    private var effectiveMeasurementType: MeasurementType {
+        selectedMeasurementType ?? currentMeasurementType
+    }
+
+    @ViewBuilder
+    private var measurementEditorContent: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Measurement type segmented picker
+            if availableMeasurementTypes.count > 1 {
+                Picker("Measurement Type", selection: Binding(
+                    get: { effectiveMeasurementType },
+                    set: { newType in
+                        Feedback.selection()
+                        selectedMeasurementType = newType
+                        changeMeasurementType(to: newType)
+                    }
+                )) {
+                    ForEach(availableMeasurementTypes, id: \.self) { type in
+                        Text(type.rawValue).tag(type)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.bottom, 8)
+            }
+
+            // Show appropriate editor based on selected type
+            switch effectiveMeasurementType {
+            case .manual:
+                manualCriteriaEditor
+            case .healthKit:
+                healthKitEditorContent
+            case .screenTime:
+                screenTimeEditorContent
+            }
+        }
+        .onAppear {
+            // Initialize selection from current habit state
+            if selectedMeasurementType == nil {
+                selectedMeasurementType = currentMeasurementType
+            }
+        }
+    }
+
+    /// Manual criteria editor
+    @ViewBuilder
+    private var manualCriteriaEditor: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if editingCriteria {
+                HStack {
+                    Text("Success criteria")
+                        .font(.custom("PatrickHand-Regular", size: 14))
+                        .foregroundStyle(JournalTheme.Colors.inkBlack)
+
+                    Spacer()
+
+                    Button("Save") {
+                        Feedback.buttonPress()
+                        let criteriaString = CriteriaEditorView.buildCriteriaString(from: editedCriteria)
+                        habit.successCriteria = criteriaString.isEmpty ? nil : criteriaString
+                        store.updateHabit(habit)
+                        editingCriteria = false
+                    }
+                    .font(.custom("PatrickHand-Regular", size: 14))
+                    .foregroundStyle(JournalTheme.Colors.teal)
+                }
+
+                CriteriaEditorView(criteria: $editedCriteria)
+            } else {
+                Button {
+                    Feedback.selection()
+                    editedCriteria = CriteriaEditorView.parseCriteriaString(habit.successCriteria)
+                    editingCriteria = true
+                } label: {
+                    HStack {
+                        Text("Success criteria")
+                            .font(.custom("PatrickHand-Regular", size: 14))
+                            .foregroundStyle(JournalTheme.Colors.inkBlack)
+
+                        Spacer()
+
+                        Text(habit.successCriteria ?? "None")
+                            .font(JournalTheme.Fonts.habitCriteria())
+                            .foregroundStyle(JournalTheme.Colors.completedGray)
+
+                        Image(systemName: "pencil")
+                            .font(.custom("PatrickHand-Regular", size: 12))
+                            .foregroundStyle(JournalTheme.Colors.inkBlue)
+                    }
+                    .padding(12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(JournalTheme.Colors.paperLight)
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    /// Screen Time editor content
+    @ViewBuilder
+    private var screenTimeEditorContent: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ScreenTimeHabitSection(
+                appToken: Binding(
+                    get: { habit.screenTimeAppToken },
+                    set: { newToken in
+                        habit.screenTimeAppToken = newToken
+                        store.updateHabit(habit)
+                    }
+                ),
+                targetMinutes: Binding(
+                    get: { habit.screenTimeTarget ?? 30 },
+                    set: { newTarget in
+                        habit.screenTimeTarget = newTarget
+                        store.updateHabit(habit)
+                    }
+                ),
+                onTokenSelected: { }
+            )
+
+            // Auto-complete toggle
+            if habit.isScreenTimeLinked {
+                HStack {
+                    Text("Auto-complete")
+                        .font(.custom("PatrickHand-Regular", size: 14))
+                        .foregroundStyle(JournalTheme.Colors.inkBlack)
+
+                    Spacer()
+
+                    Toggle("", isOn: Binding(
+                        get: { habit.screenTimeAutoComplete },
+                        set: { newValue in
+                            Feedback.selection()
+                            habit.screenTimeAutoComplete = newValue
+                            store.updateHabit(habit)
+                        }
+                    ))
+                    .labelsHidden()
+                    .tint(JournalTheme.Colors.teal)
+                }
+            }
+        }
+    }
+
+    /// Changes the measurement type and clears previous measurement data
+    private func changeMeasurementType(to newType: MeasurementType) {
+        // Clear previous measurement data
+        switch currentMeasurementType {
+        case .manual:
+            // Keep success criteria for manual, it's often still useful
+            break
+        case .healthKit:
+            habit.healthKitMetricType = nil
+            habit.healthKitTarget = nil
+        case .screenTime:
+            habit.screenTimeAppToken = nil
+            habit.screenTimeTarget = nil
+        }
+
+        // Set up for new type if needed
+        switch newType {
+        case .manual:
+            break
+        case .healthKit:
+            // Will be configured in the editor
+            break
+        case .screenTime:
+            // Will be configured in the editor
+            break
+        }
+
+        store.updateHabit(habit)
     }
 
     // MARK: - Time Slot Summary

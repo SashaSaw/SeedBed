@@ -82,6 +82,9 @@ struct TodayContentView: View {
     @State private var healthKitManager = HealthKitManager.shared
     @State private var healthKitCancellable: AnyCancellable?
 
+    // Screen Time integration
+    @State private var screenTimeManager = ScreenTimeManager.shared
+
 
     private let lineHeight = JournalTheme.Dimensions.lineSpacing
     private let contentPadding: CGFloat = 24
@@ -439,6 +442,9 @@ struct TodayContentView: View {
 
             // Set up HealthKit integration
             setupHealthKitObserver()
+
+            // Set up Screen Time integration
+            setupScreenTimeObserver()
         }
         .onDisappear {
             // Clean up HealthKit observer
@@ -489,6 +495,9 @@ struct TodayContentView: View {
                         store?.checkHealthKitCompletions(triggerNotification: false)
                     }
                 }
+
+                // Check Screen Time completions when app becomes active
+                store.checkScreenTimeCompletions(triggerNotification: false)
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
@@ -550,6 +559,22 @@ struct TodayContentView: View {
             .sink { [weak store] _ in
                 store?.checkHealthKitCompletions(triggerNotification: true)
             }
+    }
+
+    // MARK: - Screen Time Integration
+
+    /// Set up Screen Time monitoring for habit auto-completion
+    private func setupScreenTimeObserver() {
+        guard screenTimeManager.isAuthorized else { return }
+
+        let linkedHabits = store.screenTimeLinkedHabits
+        guard !linkedHabits.isEmpty else { return }
+
+        // Start monitoring all linked habits
+        store.startScreenTimeMonitoring()
+
+        // Check for any completions that happened while app was closed
+        store.checkScreenTimeCompletions(triggerNotification: false)
     }
 
     // MARK: - Morning Tasks Prompt
@@ -746,7 +771,13 @@ struct TodayContentView: View {
                             },
                             onUncomplete: { store.setCompletion(for: habit, completed: false, on: selectedDate) },
                             onArchive: { store.archiveHabit(habit) },
-                            onLongPress: { }
+                            onTap: { selectedHabit = habit },
+                            onLongPress: {
+                                withAnimation(.easeInOut(duration: 0.25)) {
+                                    isSelectingForGroup = true
+                                    selectedHabitIdsForGroup = [habit.id]
+                                }
+                            }
                         )
                         .contextMenu {
                             Button {
@@ -785,6 +816,12 @@ struct TodayContentView: View {
                             onLongPress: { selectedGroup = group },
                             onHobbyComplete: { habit in
                                 handleCompletionOverlay(for: habit)
+                            },
+                            onSubHabitLongPress: { habit in
+                                withAnimation(.easeInOut(duration: 0.25)) {
+                                    isSelectingForGroup = true
+                                    selectedHabitIdsForGroup = [habit.id]
+                                }
                             }
                         )
 
@@ -907,7 +944,13 @@ struct TodayContentView: View {
                             },
                             onUncomplete: { store.setCompletion(for: habit, completed: false, on: selectedDate) },
                             onArchive: { store.archiveHabit(habit) },
-                            onLongPress: { }
+                            onTap: { selectedHabit = habit },
+                            onLongPress: {
+                                withAnimation(.easeInOut(duration: 0.25)) {
+                                    isSelectingForGroup = true
+                                    selectedHabitIdsForGroup = [habit.id]
+                                }
+                            }
                         )
                         .contextMenu {
                             Button {
@@ -987,7 +1030,13 @@ struct TodayContentView: View {
                             handleCompletionOverlay(for: habit)
                         },
                         onUncomplete: { store.setCompletion(for: habit, completed: false, on: selectedDate) },
-                        onTap: { selectedHabit = habit }
+                        onTap: { selectedHabit = habit },
+                        onLongPress: {
+                            withAnimation(.easeInOut(duration: 0.25)) {
+                                isSelectingForGroup = true
+                                selectedHabitIdsForGroup = [habit.id]
+                            }
+                        }
                     )
                 }
             }
@@ -1014,7 +1063,13 @@ struct TodayContentView: View {
                             handleCompletionOverlay(for: habit)
                         },
                         onUncomplete: { store.setCompletion(for: habit, completed: false, on: selectedDate) },
-                        onTap: { selectedHabit = habit }
+                        onTap: { selectedHabit = habit },
+                        onLongPress: {
+                            withAnimation(.easeInOut(duration: 0.25)) {
+                                isSelectingForGroup = true
+                                selectedHabitIdsForGroup = [habit.id]
+                            }
+                        }
                     )
                 }
             }
@@ -1097,7 +1152,13 @@ struct TodayContentView: View {
                         onComplete: { store.setCompletion(for: habit, completed: true, on: selectedDate) },
                         onUncomplete: { store.setCompletion(for: habit, completed: false, on: selectedDate) },
                         onArchive: { store.archiveHabit(habit) },
-                        onLongPress: { selectedHabit = habit },
+                        onTap: { selectedHabit = habit },
+                        onLongPress: {
+                            withAnimation(.easeInOut(duration: 0.25)) {
+                                isSelectingForGroup = true
+                                selectedHabitIdsForGroup = [habit.id]
+                            }
+                        },
                         isLocked: habit.triggersAppBlockSlip && blockSettings.areNegativeHabitsLockedToday && habit.isCompleted(for: selectedDate)
                     )
                 }
@@ -1161,7 +1222,13 @@ struct TodayContentView: View {
                         onComplete: { },
                         onUncomplete: { store.setCompletion(for: habit, completed: false, on: selectedDate) },
                         onArchive: { store.archiveHabit(habit) },
-                        onLongPress: { selectedHabit = habit }
+                        onTap: { selectedHabit = habit },
+                        onLongPress: {
+                            withAnimation(.easeInOut(duration: 0.25)) {
+                                isSelectingForGroup = true
+                                selectedHabitIdsForGroup = [habit.id]
+                            }
+                        }
                     )
                     .opacity(0.6)
                 }
@@ -1175,7 +1242,13 @@ struct TodayContentView: View {
                         onComplete: { },
                         onUncomplete: { store.setCompletion(for: habit, completed: false, on: selectedDate) },
                         onArchive: { store.archiveHabit(habit) },
-                        onLongPress: { selectedHabit = habit }
+                        onTap: { selectedHabit = habit },
+                        onLongPress: {
+                            withAnimation(.easeInOut(duration: 0.25)) {
+                                isSelectingForGroup = true
+                                selectedHabitIdsForGroup = [habit.id]
+                            }
+                        }
                     )
                     .opacity(0.6)
                 }
@@ -1301,7 +1374,7 @@ struct SelectableHabitRow: View {
                     .font(JournalTheme.Fonts.habitName())
                     .foregroundStyle(JournalTheme.Colors.inkBlack)
 
-                if let criteria = habit.successCriteria, !criteria.isEmpty {
+                if let criteria = habit.criteriaDisplayString {
                     Text("(\(criteria))")
                         .font(JournalTheme.Fonts.habitCriteria())
                         .foregroundStyle(JournalTheme.Colors.completedGray)
@@ -1358,6 +1431,7 @@ struct HabitLinedRow: View {
     let onComplete: () -> Void
     let onUncomplete: () -> Void
     let onArchive: () -> Void
+    let onTap: () -> Void
     let onLongPress: () -> Void
 
     // Swipe gesture state
@@ -1382,6 +1456,7 @@ struct HabitLinedRow: View {
          onComplete: @escaping () -> Void,
          onUncomplete: @escaping () -> Void,
          onArchive: @escaping () -> Void,
+         onTap: @escaping () -> Void,
          onLongPress: @escaping () -> Void) {
         self.habit = habit
         self.isCompleted = isCompleted
@@ -1389,6 +1464,7 @@ struct HabitLinedRow: View {
         self.onComplete = onComplete
         self.onUncomplete = onUncomplete
         self.onArchive = onArchive
+        self.onTap = onTap
         self.onLongPress = onLongPress
         // Initialize progress based on completion state
         self._strikethroughProgress = State(initialValue: isCompleted ? 1.0 : 0.0)
@@ -1459,7 +1535,7 @@ struct HabitLinedRow: View {
                                 : JournalTheme.Colors.inkBlack
                         )
 
-                    if let criteria = habit.successCriteria, !criteria.isEmpty {
+                    if let criteria = habit.criteriaDisplayString {
                         Text("(\(criteria))")
                             .font(JournalTheme.Fonts.habitCriteria())
                             .foregroundStyle(JournalTheme.Colors.completedGray)
@@ -1508,15 +1584,9 @@ struct HabitLinedRow: View {
                 }
         )
         .onTapGesture {
-            // Tap to undo completion
-            if isCompleted {
-                withAnimation(JournalTheme.Animations.strikethrough) {
-                    strikethroughProgress = 0.0
-                    hasPassedThreshold = false
-                }
-                Feedback.undo()
-                onUncomplete()
-            }
+            // Tap to open edit view
+            Feedback.selection()
+            onTap()
         }
         .onChange(of: isCompleted) { _, newValue in
             // Sync with external state changes (only when not dragging)
@@ -1681,6 +1751,7 @@ struct NegativeHabitLinedRow: View {
     let onComplete: () -> Void // Mark as slipped
     let onUncomplete: () -> Void // Undo slip
     let onArchive: () -> Void
+    let onTap: () -> Void
     let onLongPress: () -> Void
     var isLocked: Bool = false // When true, slip cannot be undone (auto-slipped via app blocker)
 
@@ -1750,7 +1821,7 @@ struct NegativeHabitLinedRow: View {
                             : JournalTheme.Colors.inkBlack
                     )
 
-                if let criteria = habit.successCriteria, !criteria.isEmpty {
+                if let criteria = habit.criteriaDisplayString {
                     Text("(\(criteria))")
                         .font(JournalTheme.Fonts.habitCriteria())
                         .foregroundStyle(JournalTheme.Colors.completedGray)
@@ -1805,17 +1876,9 @@ struct NegativeHabitLinedRow: View {
                 }
         )
         .onTapGesture {
-            if isCompleted {
-                // If locked (auto-slipped via blocker), prevent undo
-                guard !isLocked else { return }
-                // Tap to undo slip
-                Feedback.undo()
-                onUncomplete()
-            } else {
-                // Tap to mark as slipped
-                Feedback.slip()
-                onComplete()
-            }
+            // Tap to open edit view
+            Feedback.selection()
+            onTap()
         }
         .onChange(of: isDragging) { _, newValue in
             if !newValue {
@@ -2184,6 +2247,7 @@ struct GroupLinedRow: View {
     let onLastHabitDeleted: () -> Void
     let onLongPress: () -> Void
     var onHobbyComplete: ((Habit) -> Void)? = nil
+    var onSubHabitLongPress: ((Habit) -> Void)? = nil
 
     // Collapse state
     @State private var isCollapsed: Bool = false
@@ -2354,7 +2418,8 @@ struct GroupLinedRow: View {
                         onUncomplete: {
                             store.setCompletion(for: habit, completed: false, on: selectedDate)
                         },
-                        onLongPress: { onSelectHabit(habit) }
+                        onTap: { onSelectHabit(habit) },
+                        onLongPress: { onSubHabitLongPress?(habit) }
                     )
                     .transition(.asymmetric(
                         insertion: .opacity.combined(with: .move(edge: .top)),
@@ -2444,6 +2509,7 @@ struct SubHabitRow: View {
     let lineHeight: CGFloat
     let onComplete: () -> Void
     let onUncomplete: () -> Void
+    let onTap: () -> Void
     let onLongPress: () -> Void
 
     @State private var strikethroughProgress: CGFloat
@@ -2457,12 +2523,14 @@ struct SubHabitRow: View {
     init(habit: Habit, isCompleted: Bool, lineHeight: CGFloat,
          onComplete: @escaping () -> Void,
          onUncomplete: @escaping () -> Void,
+         onTap: @escaping () -> Void,
          onLongPress: @escaping () -> Void) {
         self.habit = habit
         self.isCompleted = isCompleted
         self.lineHeight = lineHeight
         self.onComplete = onComplete
         self.onUncomplete = onUncomplete
+        self.onTap = onTap
         self.onLongPress = onLongPress
         self._strikethroughProgress = State(initialValue: isCompleted ? 1.0 : 0.0)
         self._hasPassedThreshold = State(initialValue: isCompleted)
@@ -2540,14 +2608,9 @@ struct SubHabitRow: View {
                 }
         )
         .onTapGesture {
-            if isCompleted {
-                withAnimation(JournalTheme.Animations.strikethrough) {
-                    strikethroughProgress = 0.0
-                    hasPassedThreshold = false
-                }
-                Feedback.undo()
-                onUncomplete()
-            }
+            // Tap to open edit view
+            Feedback.selection()
+            onTap()
         }
         .onChange(of: isCompleted) { _, newValue in
             if !isDragging {
@@ -2840,6 +2903,7 @@ struct TimeSlotHabitRow: View {
     let onComplete: () -> Void
     let onUncomplete: () -> Void
     let onTap: () -> Void
+    let onLongPress: () -> Void
 
     // Swipe gesture state
     @State private var strikethroughProgress: CGFloat
@@ -2853,7 +2917,8 @@ struct TimeSlotHabitRow: View {
     init(habit: Habit, groupName: String?, isCompleted: Bool, lineHeight: CGFloat,
          onComplete: @escaping () -> Void,
          onUncomplete: @escaping () -> Void,
-         onTap: @escaping () -> Void) {
+         onTap: @escaping () -> Void,
+         onLongPress: @escaping () -> Void) {
         self.habit = habit
         self.groupName = groupName
         self.isCompleted = isCompleted
@@ -2861,6 +2926,7 @@ struct TimeSlotHabitRow: View {
         self.onComplete = onComplete
         self.onUncomplete = onUncomplete
         self.onTap = onTap
+        self.onLongPress = onLongPress
         self._strikethroughProgress = State(initialValue: isCompleted ? 1.0 : 0.0)
         self._hasPassedThreshold = State(initialValue: isCompleted)
     }
@@ -2931,7 +2997,7 @@ struct TimeSlotHabitRow: View {
                                 : JournalTheme.Colors.inkBlack
                         )
 
-                    if let criteria = habit.successCriteria, !criteria.isEmpty {
+                    if let criteria = habit.criteriaDisplayString {
                         Text("(\(criteria))")
                             .font(JournalTheme.Fonts.habitCriteria())
                             .foregroundStyle(JournalTheme.Colors.completedGray)
@@ -2982,17 +3048,17 @@ struct TimeSlotHabitRow: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 24)
         .contentShape(Rectangle())
-        .onTapGesture {
-            if isCompleted {
-                withAnimation(JournalTheme.Animations.strikethrough) {
-                    strikethroughProgress = 0.0
-                    hasPassedThreshold = false
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.5)
+                .onEnded { _ in
+                    Feedback.longPress()
+                    onLongPress()
                 }
-                Feedback.undo()
-                onUncomplete()
-            } else {
-                onTap()
-            }
+        )
+        .onTapGesture {
+            // Tap to open edit view
+            Feedback.selection()
+            onTap()
         }
         .onChange(of: isCompleted) { _, newValue in
             if !isDragging {

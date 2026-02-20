@@ -9,12 +9,15 @@ final class CloudSyncService {
 
     // MARK: - User Preference
 
-    /// Whether iCloud sync is enabled (stored locally, not synced to cloud)
+    /// Whether iCloud sync is enabled (stored locally AND synced to cloud)
     var isEnabled: Bool {
         get { UserDefaults.standard.bool(forKey: "iCloudSyncEnabled") }
         set {
             let oldValue = isEnabled
             UserDefaults.standard.set(newValue, forKey: "iCloudSyncEnabled")
+
+            // Sync this setting to iCloud so it's restored on reinstall/new device
+            CloudSettingsService.shared.syncCloudSyncSetting(newValue)
 
             if newValue && !oldValue {
                 // First time enabling - trigger migration

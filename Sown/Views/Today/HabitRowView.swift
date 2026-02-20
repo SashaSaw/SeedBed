@@ -58,7 +58,7 @@ struct HabitRowView: View {
                             .font(JournalTheme.Fonts.habitName())
                             .foregroundStyle(isCompleted ? JournalTheme.Colors.completedGray : JournalTheme.Colors.inkBlack)
 
-                        if let criteria = habit.successCriteria, !criteria.isEmpty {
+                        if let criteria = habit.criteriaDisplayString {
                             Text("(\(criteria))")
                                 .font(JournalTheme.Fonts.habitCriteria())
                                 .foregroundStyle(JournalTheme.Colors.completedGray)
@@ -71,6 +71,11 @@ struct HabitRowView: View {
                                 target: habit.healthKitTarget ?? 0,
                                 currentValue: healthKitManager.currentValues[metric] ?? 0
                             )
+                        }
+
+                        // Screen Time progress badge
+                        if habit.isScreenTimeLinked, let targetMinutes = habit.screenTimeTarget {
+                            ScreenTimeProgressBadge(targetMinutes: targetMinutes)
                         }
 
                         Spacer()

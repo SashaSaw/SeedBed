@@ -1,5 +1,7 @@
 import SwiftUI
 import SwiftData
+import FamilyControls
+import ManagedSettings
 
 /// Streamlined nice-to-do habit creation with progressive disclosure
 struct AddNiceToDoView: View {
@@ -14,9 +16,20 @@ struct AddNiceToDoView: View {
     @State private var frequencyTarget: Int = 3
     @State private var hasSetFrequency: Bool = false
 
-    // Step 3: Success Criteria
+    // Step 3: Success Criteria (unified measurement type)
+    @State private var measurementType: MeasurementType = .manual
     @State private var criteria: [CriterionEntry] = [CriterionEntry()]
     @State private var hasSetCriteria: Bool = false
+
+    // HealthKit measurement
+    @State private var healthKitManager = HealthKitManager.shared
+    @State private var healthKitMetric: HealthKitMetricType? = nil
+    @State private var healthKitTarget: Double = 0
+
+    // Screen Time measurement
+    @State private var screenTimeManager = ScreenTimeManager.shared
+    @State private var screenTimeAppToken: ApplicationToken? = nil
+    @State private var screenTimeTargetMinutes: Int = 30
 
     // Step 4: Habit Prompt
     @State private var habitPrompt: String = ""
@@ -26,12 +39,6 @@ struct AddNiceToDoView: View {
     @State private var enableReminders: Bool = false
     @State private var hasSetReminders: Bool = false
     @State private var selectedTimeSlots: Set<String> = []
-
-    // Step 6: HealthKit (optional, only shown if authorized)
-    @State private var healthKitManager = HealthKitManager.shared
-    @State private var healthKitMetric: HealthKitMetricType? = nil
-    @State private var healthKitTarget: Double = 0
-    @State private var hasSetHealthKit: Bool = false
 
     // Confirmation
     @State private var showConfirmation = false
@@ -44,8 +51,19 @@ struct AddNiceToDoView: View {
     private var showStep3: Bool { hasSetFrequency }
     private var showStep4: Bool { hasSetCriteria }
     private var showStep5: Bool { hasSetPrompt }
-    private var showStep6: Bool { hasSetReminders && healthKitManager.isAuthorized }
-    private var showSubmit: Bool { hasSetReminders && (!healthKitManager.isAuthorized || hasSetHealthKit) }
+    private var showSubmit: Bool { hasSetReminders }
+
+    /// Available measurement types based on authorization status
+    private var availableMeasurementTypes: [MeasurementType] {
+        var types: [MeasurementType] = [.manual]
+        if healthKitManager.isAuthorized {
+            types.append(.healthKit)
+        }
+        if screenTimeManager.isAuthorized {
+            types.append(.screenTime)
+        }
+        return types
+    }
 
     /// Quick-pick suggestions appropriate for nice-to-do habits
     private let niceToDoSuggestions: [(emoji: String, name: String)] = [
@@ -97,10 +115,6 @@ struct AddNiceToDoView: View {
 
                     if showStep5 {
                         remindersSection
-                    }
-
-                    if showStep6 {
-                        healthKitSection
                     }
 
                     if showSubmit {
@@ -310,14 +324,31 @@ struct AddNiceToDoView: View {
 
     private var successCriteriaSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("HOW WILL YOU MEASURE IT?")
+            Text("HOW WILL YOU MEASURE SUCCESS?")
                 .font(JournalTheme.Fonts.sectionHeader())
                 .foregroundStyle(JournalTheme.Colors.completedGray)
                 .tracking(1.5)
 
-            CriteriaEditorView(criteria: $criteria, onChanged: {
-                checkCriteriaCompletion()
-            })
+            // Measurement type picker (only show if we have options)
+            if availableMeasurementTypes.count > 1 {
+                Picker("Measurement Type", selection: $measurementType) {
+                    ForEach(availableMeasurementTypes, id: \.self) { type in
+                        Text(type.rawValue).tag(type)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.bottom, 8)
+            }
+
+            // Show appropriate input based on measurement type
+            switch measurementType {
+            case .manual:
+                manualCriteriaInput
+            case .healthKit:
+                healthKitCriteriaInput
+            case .screenTime:
+                screenTimeCriteriaInput
+            }
 
             // Skip link
             if !hasSetCriteria {
@@ -337,8 +368,119 @@ struct AddNiceToDoView: View {
         .transition(.opacity.combined(with: .move(edge: .bottom)))
     }
 
+    // MARK: - Manual Criteria Input
+
+    private var manualCriteriaInput: some View {
+        CriteriaEditorView(criteria: $criteria, onChanged: {
+            checkCriteriaCompletion()
+        })
+    }
+
+    // MARK: - HealthKit Criteria Input
+
+    private var healthKitCriteriaInput: some View {
+        VStack(spacing: 12) {
+            // Metric picker
+            Menu {
+                ForEach(HealthKitMetricType.allCases, id: \.self) { metric in
+                    Button {
+                        healthKitMetric = metric
+                        healthKitTarget = metric.defaultTarget
+                        markCriteriaSet()
+                    } label: {
+                        Label(metric.displayName, systemImage: metric.icon)
+                    }
+                }
+            } label: {
+                HStack {
+                    if let metric = healthKitMetric {
+                        Image(systemName: metric.icon)
+                            .foregroundStyle(.red)
+                        Text(metric.displayName)
+                            .foregroundStyle(JournalTheme.Colors.inkBlack)
+                    } else {
+                        Image(systemName: "heart.fill")
+                            .foregroundStyle(JournalTheme.Colors.completedGray)
+                        Text("Select a metric")
+                            .foregroundStyle(JournalTheme.Colors.completedGray)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.down")
+                        .font(.custom("PatrickHand-Regular", size: 12))
+                        .foregroundStyle(JournalTheme.Colors.completedGray)
+                }
+                .font(JournalTheme.Fonts.habitName())
+                .padding(14)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.white.opacity(0.85))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .strokeBorder(JournalTheme.Colors.lineLight, lineWidth: 1)
+                        )
+                )
+            }
+
+            // Target input (only if metric selected)
+            if let metric = healthKitMetric {
+                HStack {
+                    Text("Target:")
+                        .font(JournalTheme.Fonts.habitName())
+                        .foregroundStyle(JournalTheme.Colors.inkBlack)
+
+                    TextField("", value: $healthKitTarget, format: .number)
+                        .font(.system(size: 16, weight: .medium, design: .monospaced))
+                        .foregroundStyle(JournalTheme.Colors.inkBlack)
+                        .keyboardType(.decimalPad)
+                        .frame(width: 80)
+                        .multilineTextAlignment(.center)
+                        .padding(8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(JournalTheme.Colors.paperLight)
+                        )
+
+                    Text(metric.unit)
+                        .font(JournalTheme.Fonts.habitCriteria())
+                        .foregroundStyle(JournalTheme.Colors.completedGray)
+
+                    Spacer()
+                }
+                .padding(14)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.white.opacity(0.85))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .strokeBorder(JournalTheme.Colors.lineLight, lineWidth: 1)
+                        )
+                )
+            }
+        }
+    }
+
+    // MARK: - Screen Time Criteria Input
+
+    private var screenTimeCriteriaInput: some View {
+        ScreenTimeHabitSection(
+            appToken: $screenTimeAppToken,
+            targetMinutes: $screenTimeTargetMinutes,
+            onTokenSelected: {
+                markCriteriaSet()
+            }
+        )
+    }
+
     private func checkCriteriaCompletion() {
         if CriteriaEditorView.hasValidCriteria(criteria) && !hasSetCriteria {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                hasSetCriteria = true
+            }
+        }
+    }
+
+    private func markCriteriaSet() {
+        if !hasSetCriteria {
             withAnimation(.easeInOut(duration: 0.25)) {
                 hasSetCriteria = true
             }
@@ -460,130 +602,6 @@ struct AddNiceToDoView: View {
         .transition(.opacity.combined(with: .move(edge: .bottom)))
     }
 
-    // MARK: - Step 6: HealthKit Link (Optional)
-
-    private var healthKitSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("LINK TO APPLE HEALTH")
-                .font(JournalTheme.Fonts.sectionHeader())
-                .foregroundStyle(JournalTheme.Colors.completedGray)
-                .tracking(1.5)
-
-            Text("Auto-complete this habit when you reach a health goal")
-                .font(JournalTheme.Fonts.habitCriteria())
-                .foregroundStyle(JournalTheme.Colors.completedGray)
-                .italic()
-
-            VStack(spacing: 12) {
-                // Metric picker
-                Menu {
-                    Button("None") {
-                        healthKitMetric = nil
-                        healthKitTarget = 0
-                        markHealthKitSet()
-                    }
-                    ForEach(HealthKitMetricType.allCases, id: \.self) { metric in
-                        Button {
-                            healthKitMetric = metric
-                            healthKitTarget = metric.defaultTarget
-                            markHealthKitSet()
-                        } label: {
-                            Label(metric.displayName, systemImage: metric.icon)
-                        }
-                    }
-                } label: {
-                    HStack {
-                        if let metric = healthKitMetric {
-                            Image(systemName: metric.icon)
-                                .foregroundStyle(.red)
-                            Text(metric.displayName)
-                                .foregroundStyle(JournalTheme.Colors.inkBlack)
-                        } else {
-                            Image(systemName: "heart.fill")
-                                .foregroundStyle(JournalTheme.Colors.completedGray)
-                            Text("Select a metric")
-                                .foregroundStyle(JournalTheme.Colors.completedGray)
-                        }
-                        Spacer()
-                        Image(systemName: "chevron.down")
-                            .font(.custom("PatrickHand-Regular", size: 12))
-                            .foregroundStyle(JournalTheme.Colors.completedGray)
-                    }
-                    .font(JournalTheme.Fonts.habitName())
-                    .padding(14)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.white.opacity(0.85))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .strokeBorder(JournalTheme.Colors.lineLight, lineWidth: 1)
-                            )
-                    )
-                }
-
-                // Target input (only if metric selected)
-                if let metric = healthKitMetric {
-                    HStack {
-                        Text("Target:")
-                            .font(JournalTheme.Fonts.habitName())
-                            .foregroundStyle(JournalTheme.Colors.inkBlack)
-
-                        TextField("", value: $healthKitTarget, format: .number)
-                            .font(.system(size: 16, weight: .medium, design: .monospaced))
-                            .foregroundStyle(JournalTheme.Colors.inkBlack)
-                            .keyboardType(.decimalPad)
-                            .frame(width: 80)
-                            .multilineTextAlignment(.center)
-                            .padding(8)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(JournalTheme.Colors.paperLight)
-                            )
-
-                        Text(metric.unit)
-                            .font(JournalTheme.Fonts.habitCriteria())
-                            .foregroundStyle(JournalTheme.Colors.completedGray)
-
-                        Spacer()
-                    }
-                    .padding(14)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.white.opacity(0.85))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .strokeBorder(JournalTheme.Colors.lineLight, lineWidth: 1)
-                            )
-                    )
-                }
-            }
-
-            // Skip link
-            if !hasSetHealthKit {
-                Button {
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        hasSetHealthKit = true
-                    }
-                } label: {
-                    Text("Skip")
-                        .font(JournalTheme.Fonts.habitCriteria())
-                        .foregroundStyle(JournalTheme.Colors.inkBlue)
-                        .underline()
-                }
-                .padding(.leading, 4)
-            }
-        }
-        .transition(.opacity.combined(with: .move(edge: .bottom)))
-    }
-
-    private func markHealthKitSet() {
-        if !hasSetHealthKit {
-            withAnimation(.easeInOut(duration: 0.25)) {
-                hasSetHealthKit = true
-            }
-        }
-    }
-
     // MARK: - Submit
 
     private var submitButton: some View {
@@ -608,9 +626,6 @@ struct AddNiceToDoView: View {
         let trimmedName = name.trimmingCharacters(in: .whitespaces)
         guard !trimmedName.isEmpty else { return }
 
-        // Build success criteria string from valid entries
-        let criteriaString = buildCriteriaString()
-
         // Strip emoji for display name
         var displayName = trimmedName
         if let first = displayName.first, first.isEmoji {
@@ -618,20 +633,43 @@ struct AddNiceToDoView: View {
         }
         addedHabitName = displayName.isEmpty ? trimmedName : displayName
 
+        // Determine what to save based on measurement type
+        var criteriaString: String? = nil
+        var healthKitMetricRaw: String? = nil
+        var healthKitTargetValue: Double? = nil
+        var screenTimeTokenData: Data? = nil
+        var screenTimeTargetValue: Int? = nil
+
+        switch measurementType {
+        case .manual:
+            let built = buildCriteriaString()
+            criteriaString = built.isEmpty ? nil : built
+        case .healthKit:
+            healthKitMetricRaw = healthKitMetric?.rawValue
+            healthKitTargetValue = healthKitMetric != nil ? healthKitTarget : nil
+        case .screenTime:
+            screenTimeTokenData = screenTimeAppToken != nil
+                ? try? PropertyListEncoder().encode(screenTimeAppToken)
+                : nil
+            screenTimeTargetValue = screenTimeAppToken != nil ? screenTimeTargetMinutes : nil
+        }
+
         let _ = store.addHabit(
             name: trimmedName,
             tier: .niceToDo,
             type: .positive,
             frequencyType: frequencyType,
             frequencyTarget: frequencyTarget,
-            successCriteria: criteriaString.isEmpty ? nil : criteriaString,
+            successCriteria: criteriaString,
             isHobby: false,
             notificationsEnabled: enableReminders,
             enableNotesPhotos: false,
             habitPrompt: habitPrompt.trimmingCharacters(in: .whitespaces),
             scheduleTimes: Array(selectedTimeSlots),
-            healthKitMetricType: healthKitMetric?.rawValue,
-            healthKitTarget: healthKitMetric != nil ? healthKitTarget : nil
+            healthKitMetricType: healthKitMetricRaw,
+            healthKitTarget: healthKitTargetValue,
+            screenTimeAppTokenData: screenTimeTokenData,
+            screenTimeTarget: screenTimeTargetValue
         )
 
         withAnimation(.easeInOut(duration: 0.3)) {

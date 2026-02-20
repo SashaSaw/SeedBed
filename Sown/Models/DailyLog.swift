@@ -13,6 +13,7 @@ final class DailyLog {
     var photoPaths: [String] = [] // Up to 3 photos
     var selectedOption: String?
     var autoCompletedByHealthKit: Bool = false
+    var autoCompletedByScreenTime: Bool = false
 
     // Relationship to habit
     var habit: Habit?

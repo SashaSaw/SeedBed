@@ -26,6 +26,7 @@ enum JournalTheme {
         static let navy = Color(hex: "1E2A4A")            // Core UI, checkmarks, primary text
         static let coral = Color(hex: "D4836A")           // Blocked apps, quit habit, archive
         static let paperLight = Color(hex: "FAF6EC")       // Card backgrounds, input backgrounds
+        static let purple = Color(hex: "7C3AED")          // Screen Time integration, app usage
     }
 
     // MARK: - Fonts

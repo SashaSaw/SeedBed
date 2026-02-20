@@ -123,7 +123,7 @@ struct CriteriaEditorView: View {
     // MARK: - Mode Picker
 
     private func modePicker(index: Int) -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             ForEach(CriterionMode.allCases, id: \.self) { mode in
                 let isSelected = criteria[index].mode == mode
 
@@ -136,13 +136,13 @@ struct CriteriaEditorView: View {
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: mode == .measure ? "number" : "clock")
-                            .font(.custom("PatrickHand-Regular", size: 10))
+                            .font(.custom("PatrickHand-Regular", size: 11))
                         Text(mode.rawValue)
-                            .font(.custom("PatrickHand-Regular", size: 12))
+                            .font(.custom("PatrickHand-Regular", size: 13))
                     }
                     .foregroundStyle(isSelected ? .white : JournalTheme.Colors.inkBlack)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
                     .background(
                         Capsule()
                             .fill(isSelected ? JournalTheme.Colors.inkBlue : Color.clear)
@@ -154,6 +154,7 @@ struct CriteriaEditorView: View {
                                 lineWidth: 1
                             )
                     )
+                    .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
             }
@@ -211,21 +212,37 @@ struct CriteriaEditorView: View {
     // MARK: - Time Input
 
     private func timeInput(index: Int) -> some View {
-        DatePicker(
-            "Time",
-            selection: Binding(
-                get: { criteria[index].timeValue },
-                set: { newVal in
-                    criteria[index].timeValue = newVal
-                    onChanged?()
-                }
-            ),
-            displayedComponents: .hourAndMinute
+        HStack {
+            Text("Complete by")
+                .font(.custom("PatrickHand-Regular", size: 15))
+                .foregroundStyle(JournalTheme.Colors.inkBlack)
+
+            DatePicker(
+                "",
+                selection: Binding(
+                    get: { criteria[index].timeValue },
+                    set: { newVal in
+                        criteria[index].timeValue = newVal
+                        onChanged?()
+                    }
+                ),
+                displayedComponents: .hourAndMinute
+            )
+            .datePickerStyle(.compact)
+            .labelsHidden()
+            .tint(JournalTheme.Colors.inkBlue)
+
+            Spacer()
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(JournalTheme.Colors.paper)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .strokeBorder(JournalTheme.Colors.lineLight, lineWidth: 1)
+                )
         )
-        .datePickerStyle(.wheel)
-        .labelsHidden()
-        .frame(height: 120)
-        .clipped()
     }
 
     // MARK: - Unit Picker

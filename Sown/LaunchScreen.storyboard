@@ -17,12 +17,12 @@
         <scene sceneID="EHf-IW-A2E">
             <objects>
                 <viewController id="01J-lp-oVM" propertyAccessControl="all" sceneMemberID="viewController">
-                    <view key="view" contentMode="scaleToFill" ambiguous="YES" id="Ze5-6b-2t3">
+                    <view key="view" contentMode="scaleToFill" id="Ze5-6b-2t3">
                         <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
-                            <stackView opaque="NO" contentMode="scaleToFill" ambiguous="YES" axis="vertical" spacing="32" translatesAutoresizingMaskIntoConstraints="NO" id="fI1-uh-DS7">
-                                <rect key="frame" x="0.0" y="0.0" width="393" height="875"/>
+                            <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" spacing="32" translatesAutoresizingMaskIntoConstraints="NO" id="fI1-uh-DS7">
+                                <rect key="frame" x="0.0" y="0.0" width="393" height="1106"/>
                                 <subviews>
                                     <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="IK6-bU-OaJ">
                                         <rect key="frame" x="0.0" y="0.0" width="393" height="1"/>
@@ -150,57 +150,106 @@
                                             <constraint firstAttribute="height" constant="1" id="c4p-RT-eBJ"/>
                                         </constraints>
                                     </view>
-                                    <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="WJP-vd-rL6">
+                                    <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="hlU-9M-cwt">
                                         <rect key="frame" x="0.0" y="594" width="393" height="1"/>
+                                        <color key="backgroundColor" name="Line"/>
+                                        <constraints>
+                                            <constraint firstAttribute="height" constant="1" id="Fp9-X5-4fo"/>
+                                        </constraints>
+                                    </view>
+                                    <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="ocg-hX-nKQ">
+                                        <rect key="frame" x="0.0" y="627" width="393" height="1"/>
+                                        <color key="backgroundColor" name="Line"/>
+                                        <constraints>
+                                            <constraint firstAttribute="height" constant="1" id="8eQ-51-mg1"/>
+                                        </constraints>
+                                    </view>
+                                    <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="jLK-S3-3UD">
+                                        <rect key="frame" x="0.0" y="660" width="393" height="1"/>
+                                        <color key="backgroundColor" name="Line"/>
+                                        <constraints>
+                                            <constraint firstAttribute="height" constant="1" id="Ib2-Q2-dni"/>
+                                        </constraints>
+                                    </view>
+                                    <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="WJY-bd-FAJ">
+                                        <rect key="frame" x="0.0" y="693" width="393" height="1"/>
+                                        <color key="backgroundColor" name="Line"/>
+                                        <constraints>
+                                            <constraint firstAttribute="height" constant="1" id="vl1-lh-GxB"/>
+                                        </constraints>
+                                    </view>
+                                    <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="BQZ-EY-DVa">
+                                        <rect key="frame" x="0.0" y="726" width="393" height="1"/>
+                                        <color key="backgroundColor" name="Line"/>
+                                        <constraints>
+                                            <constraint firstAttribute="height" constant="1" id="MAZ-oT-cAb"/>
+                                        </constraints>
+                                    </view>
+                                    <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="LoW-cH-lSd">
+                                        <rect key="frame" x="0.0" y="759" width="393" height="1"/>
+                                        <color key="backgroundColor" name="Line"/>
+                                        <constraints>
+                                            <constraint firstAttribute="height" constant="1" id="KgZ-Sb-MvS"/>
+                                        </constraints>
+                                    </view>
+                                    <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="XvE-j8-qi9">
+                                        <rect key="frame" x="0.0" y="792" width="393" height="1"/>
+                                        <color key="backgroundColor" name="Line"/>
+                                        <constraints>
+                                            <constraint firstAttribute="height" constant="1" id="l8I-BU-tgo"/>
+                                        </constraints>
+                                    </view>
+                                    <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="WJP-vd-rL6">
+                                        <rect key="frame" x="0.0" y="825" width="393" height="1"/>
                                         <color key="backgroundColor" name="Line"/>
                                         <constraints>
                                             <constraint firstAttribute="height" constant="1" id="9wO-Cd-JAc"/>
                                         </constraints>
                                     </view>
                                     <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="cNa-hv-aOH">
-                                        <rect key="frame" x="0.0" y="627" width="393" height="1"/>
+                                        <rect key="frame" x="0.0" y="858" width="393" height="1"/>
                                         <color key="backgroundColor" name="Line"/>
                                         <constraints>
                                             <constraint firstAttribute="height" constant="1" id="Ctb-Ev-WdS"/>
                                         </constraints>
                                     </view>
                                     <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="wk5-kO-3wC">
-                                        <rect key="frame" x="0.0" y="660" width="393" height="1"/>
+                                        <rect key="frame" x="0.0" y="891" width="393" height="1"/>
                                         <color key="backgroundColor" name="Line"/>
                                         <constraints>
                                             <constraint firstAttribute="height" constant="1" id="Cbe-Ix-3Hy"/>
                                         </constraints>
                                     </view>
                                     <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="OX3-Nw-pX2">
-                                        <rect key="frame" x="0.0" y="693" width="393" height="1"/>
+                                        <rect key="frame" x="0.0" y="924" width="393" height="1"/>
                                         <color key="backgroundColor" name="Line"/>
                                         <constraints>
                                             <constraint firstAttribute="height" constant="1" id="kNb-jc-LUd"/>
                                         </constraints>
                                     </view>
                                     <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="dgx-et-5Hr">
-                                        <rect key="frame" x="0.0" y="726" width="393" height="1"/>
+                                        <rect key="frame" x="0.0" y="957" width="393" height="1"/>
                                         <color key="backgroundColor" name="Line"/>
                                         <constraints>
                                             <constraint firstAttribute="height" constant="1" id="ias-jy-8As"/>
                                         </constraints>
                                     </view>
                                     <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="m2G-Qs-tU5">
-                                        <rect key="frame" x="0.0" y="759" width="393" height="1"/>
+                                        <rect key="frame" x="0.0" y="990" width="393" height="1"/>
                                         <color key="backgroundColor" name="Line"/>
                                         <constraints>
                                             <constraint firstAttribute="height" constant="1" id="uci-Vy-sVP"/>
                                         </constraints>
                                     </view>
                                     <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="6Dp-46-A34">
-                                        <rect key="frame" x="0.0" y="792" width="393" height="1"/>
+                                        <rect key="frame" x="0.0" y="1023" width="393" height="1"/>
                                         <color key="backgroundColor" name="Line"/>
                                         <constraints>
                                             <constraint firstAttribute="height" constant="1" id="zoP-Dz-6vZ"/>
                                         </constraints>
                                     </view>
-                                    <view contentMode="scaleToFill" ambiguous="YES" translatesAutoresizingMaskIntoConstraints="NO" id="SoB-rA-vqd">
-                                        <rect key="frame" x="0.0" y="825" width="393" height="50"/>
+                                    <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="SoB-rA-vqd">
+                                        <rect key="frame" x="0.0" y="1056" width="393" height="50"/>
                                         <color key="backgroundColor" name="Line"/>
                                         <constraints>
                                             <constraint firstAttribute="height" constant="1" id="68B-ZN-uXb"/>
@@ -208,15 +257,15 @@
                                     </view>
                                 </subviews>
                             </stackView>
-                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" ambiguous="YES" text="🌱" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="i0n-hj-ZB7">
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="🌱" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="i0n-hj-ZB7">
                                 <rect key="frame" x="179" y="386.33333333333326" width="35" height="47.666666666666686"/>
                                 <fontDescription key="fontDescription" name="PatrickHand-Regular" family="Patrick Hand" pointSize="35"/>
                                 <color key="textColor" name="NavyText"/>
                                 <nil key="highlightedColor"/>
                             </label>
                             <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="redLine-001">
-                                <rect key="frame" x="40" y="0" width="1" height="852"/>
-                                <color key="backgroundColor" red="0.98823529411764705" green="0.50588235294117645" blue="0.50588235294117645" alpha="0.3" colorSpace="custom" customColorSpace="sRGB"/>
+                                <rect key="frame" x="40" y="0.0" width="1" height="852"/>
+                                <color key="backgroundColor" red="0.9882352941176471" green="0.50588235294117645" blue="0.50588235294117645" alpha="0.29999999999999999" colorSpace="custom" customColorSpace="sRGB"/>
                                 <constraints>
                                     <constraint firstAttribute="width" constant="1" id="redLine-w-001"/>
                                 </constraints>
@@ -227,13 +276,12 @@
                         <constraints>
                             <constraint firstItem="i0n-hj-ZB7" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="img-cx-001"/>
                             <constraint firstItem="i0n-hj-ZB7" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" constant="-16" id="img-cy-001"/>
-                            <constraint firstItem="fI1-uh-DS7" firstAttribute="bottom" secondItem="Ze5-6b-2t3" secondAttribute="bottom" id="stk-bot-001"/>
+                            <constraint firstItem="redLine-001" firstAttribute="bottom" secondItem="Ze5-6b-2t3" secondAttribute="bottom" id="redLine-bot-001"/>
+                            <constraint firstItem="redLine-001" firstAttribute="leading" secondItem="Ze5-6b-2t3" secondAttribute="leading" constant="40" id="redLine-lead-001"/>
+                            <constraint firstItem="redLine-001" firstAttribute="top" secondItem="Ze5-6b-2t3" secondAttribute="top" id="redLine-top-001"/>
                             <constraint firstItem="fI1-uh-DS7" firstAttribute="leading" secondItem="Ze5-6b-2t3" secondAttribute="leading" id="stk-lead-001"/>
                             <constraint firstItem="fI1-uh-DS7" firstAttribute="top" secondItem="Ze5-6b-2t3" secondAttribute="top" id="stk-top-001"/>
                             <constraint firstItem="fI1-uh-DS7" firstAttribute="trailing" secondItem="Ze5-6b-2t3" secondAttribute="trailing" id="stk-trail-001"/>
-                            <constraint firstItem="redLine-001" firstAttribute="leading" secondItem="Ze5-6b-2t3" secondAttribute="leading" constant="40" id="redLine-lead-001"/>
-                            <constraint firstItem="redLine-001" firstAttribute="top" secondItem="Ze5-6b-2t3" secondAttribute="top" id="redLine-top-001"/>
-                            <constraint firstItem="redLine-001" firstAttribute="bottom" secondItem="Ze5-6b-2t3" secondAttribute="bottom" id="redLine-bot-001"/>
                         </constraints>
                     </view>
                 </viewController>

@@ -19,6 +19,38 @@ struct SettingsView: View {
                     // Name/greeting section
                     nameCard
 
+                    // App Blocking button
+                    Button {
+                        Feedback.buttonPress()
+                        showingBlockSetup = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "lock.shield")
+                                .font(.custom("PatrickHand-Regular", size: 18))
+                                .foregroundStyle(JournalTheme.Colors.amber)
+
+                            Text("App Blocking")
+                                .font(.custom("PatrickHand-Regular", size: 17))
+                                .foregroundStyle(JournalTheme.Colors.inkBlack)
+
+                            Spacer()
+
+                            Image(systemName: "chevron.right")
+                                .font(.custom("PatrickHand-Regular", size: 14))
+                                .foregroundStyle(JournalTheme.Colors.completedGray)
+                        }
+                        .padding(16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(JournalTheme.Colors.paperLight)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .strokeBorder(JournalTheme.Colors.lineLight, lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(.plain)
+
                     // iCloud Backup section
                     iCloudBackupCard
 
@@ -27,6 +59,9 @@ struct SettingsView: View {
 
                     // HealthKit integration
                     HealthKitSettingsCard()
+
+                    // Screen Time integration
+                    ScreenTimeSettingsCard()
 
                     // Schedule section (wake/bed times)
                     scheduleCard
@@ -60,38 +95,6 @@ struct SettingsView: View {
                         RoundedRectangle(cornerRadius: 12)
                             .strokeBorder(JournalTheme.Colors.lineLight, lineWidth: 1)
                     )
-
-                    // App Blocking button
-                    Button {
-                        Feedback.buttonPress()
-                        showingBlockSetup = true
-                    } label: {
-                        HStack {
-                            Image(systemName: "lock.shield")
-                                .font(.custom("PatrickHand-Regular", size: 18))
-                                .foregroundStyle(JournalTheme.Colors.amber)
-
-                            Text("App Blocking")
-                                .font(.custom("PatrickHand-Regular", size: 17))
-                                .foregroundStyle(JournalTheme.Colors.inkBlack)
-
-                            Spacer()
-
-                            Image(systemName: "chevron.right")
-                                .font(.custom("PatrickHand-Regular", size: 14))
-                                .foregroundStyle(JournalTheme.Colors.completedGray)
-                        }
-                        .padding(16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(JournalTheme.Colors.paperLight)
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .strokeBorder(JournalTheme.Colors.lineLight, lineWidth: 1)
-                        )
-                    }
-                    .buttonStyle(.plain)
 
                     // Archived Habits
                     NavigationLink {

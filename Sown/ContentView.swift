@@ -59,7 +59,7 @@ struct ContentView: View {
     var body: some View {
         Group {
             if let store = habitStore {
-                if hasCompletedOnboarding {
+                if hasCompletedOnboarding || CloudSettingsService.shared.hasCompletedOnboarding {
                     TabView(selection: $selectedTab) {
                         TodayView(store: store)
                             .tabItem {
@@ -125,6 +125,8 @@ struct ContentView: View {
                     OnboardingView(store: store, onComplete: {
                         withAnimation(.easeInOut(duration: 0.5)) {
                             hasCompletedOnboarding = true
+                            // Sync onboarding completion to iCloud
+                            CloudSettingsService.shared.updateSetting("hasCompletedOnboarding", value: true)
                         }
                     })
                 }

@@ -289,7 +289,9 @@ final class HabitStore {
         scheduleTimes: [String] = [],
         triggersAppBlockSlip: Bool = false,
         healthKitMetricType: String? = nil,
-        healthKitTarget: Double? = nil
+        healthKitTarget: Double? = nil,
+        screenTimeAppTokenData: Data? = nil,
+        screenTimeTarget: Int? = nil
     ) -> Habit {
         let maxSortOrder = habits.map { $0.sortOrder }.max() ?? 0
 
@@ -320,6 +322,8 @@ final class HabitStore {
         habit.triggersAppBlockSlip = triggersAppBlockSlip
         habit.healthKitMetricType = healthKitMetricType
         habit.healthKitTarget = healthKitTarget
+        habit.screenTimeAppTokenData = screenTimeAppTokenData
+        habit.screenTimeTarget = screenTimeTarget
 
         modelContext.insert(habit)
         saveContext()
@@ -330,6 +334,11 @@ final class HabitStore {
             Task {
                 await NotificationService.shared.scheduleNotifications(for: habit)
             }
+        }
+
+        // Start Screen Time monitoring if habit is linked
+        if screenTimeAppTokenData != nil && screenTimeTarget != nil {
+            startScreenTimeMonitoring()
         }
 
         // Refresh smart reminders since habit list changed
@@ -969,6 +978,71 @@ final class HabitStore {
         } catch {
             print("Failed to save context: \(error)")
         }
+    }
+
+    // MARK: - Screen Time Integration
+
+    /// All habits linked to Screen Time that are active
+    var screenTimeLinkedHabits: [Habit] {
+        habits.filter { $0.isScreenTimeLinked && $0.isActive }
+    }
+
+    /// Check all Screen Time habits and auto-complete if target reached
+    /// - Parameter triggerNotification: Whether to send a notification (for background updates)
+    func checkScreenTimeCompletions(triggerNotification: Bool = false) {
+        let today = Date()
+        let completedIds = ScreenTimeUsageManager.shared.getCompletedHabitIds()
+
+        for habit in screenTimeLinkedHabits {
+            guard habit.screenTimeAutoComplete,
+                  completedIds.contains(habit.id.uuidString),
+                  !habit.isCompleted(for: today) else { continue }
+
+            autoCompleteScreenTimeHabit(habit, triggerNotification: triggerNotification)
+        }
+    }
+
+    /// Auto-complete a habit via Screen Time
+    private func autoCompleteScreenTimeHabit(_ habit: Habit, triggerNotification: Bool) {
+        let today = Date()
+
+        // Create or update the log with auto-completion flag
+        let log = DailyLog.createOrUpdate(
+            for: habit,
+            on: today,
+            completed: true,
+            context: modelContext
+        )
+        log.autoCompletedByScreenTime = true
+
+        // Update streak
+        updateStreak(for: habit)
+
+        completionChangeCounter += 1
+        saveContext()
+
+        // Send notification if app is backgrounded
+        if triggerNotification {
+            let isAppInBackground = UIApplication.shared.applicationState != .active
+            if isAppInBackground, let targetMinutes = habit.screenTimeTarget {
+                ScreenTimeUsageManager.shared.sendAchievementNotification(
+                    habitName: habit.name,
+                    minutes: targetMinutes
+                )
+            }
+        }
+
+        // Refresh smart reminders since completion state changed
+        refreshSmartReminders()
+    }
+
+    /// Start monitoring Screen Time for all linked habits
+    func startScreenTimeMonitoring() {
+        guard ScreenTimeManager.shared.isAuthorized else { return }
+        let linkedHabits = screenTimeLinkedHabits
+        guard !linkedHabits.isEmpty else { return }
+
+        ScreenTimeUsageManager.shared.startMonitoringHabits(Array(linkedHabits))
     }
 
     // MARK: - HealthKit Integration

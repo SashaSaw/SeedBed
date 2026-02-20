@@ -234,9 +234,15 @@ struct JournalDayRow: View {
 
             Spacer()
 
-            Image(systemName: note != nil ? "chevron.right" : (canCreateNote(for: date) ? "plus" : ""))
-                .font(.custom("PatrickHand-Regular", size: 12))
-                .foregroundStyle(JournalTheme.Colors.completedGray)
+            if note != nil {
+                Image(systemName: "chevron.right")
+                    .font(.custom("PatrickHand-Regular", size: 12))
+                    .foregroundStyle(JournalTheme.Colors.completedGray)
+            } else if canCreateNote(for: date) {
+                Image(systemName: "plus")
+                    .font(.custom("PatrickHand-Regular", size: 12))
+                    .foregroundStyle(JournalTheme.Colors.completedGray)
+            }
         }
         .padding(12)
         .background(

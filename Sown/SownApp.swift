@@ -15,6 +15,10 @@ struct SownApp: App {
 
     var sharedModelContainer: ModelContainer = {
         do {
+            // IMPORTANT: Restore iCloud sync setting from cloud BEFORE creating container
+            // This ensures returning users get their habits synced
+            CloudSettingsService.shared.restoreCloudSyncSettingIfNeeded()
+
             // Use CloudSyncService to create container with appropriate iCloud settings
             return try CloudSyncService.shared.makeModelContainer()
         } catch {

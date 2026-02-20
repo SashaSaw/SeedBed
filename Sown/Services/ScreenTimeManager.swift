@@ -33,6 +33,7 @@ final class ScreenTimeManager {
     private let settingsStore = ManagedSettingsStore()
     private let activityCenter = DeviceActivityCenter()
     private static let selectionKey = "screenTimeSelection"
+    private static let authorizationKey = "screenTimeAuthorizationGranted"
 
     /// App Group identifier for sharing data between main app and extensions
     static let appGroupID = "group.com.incept5.SeedBed"
@@ -60,6 +61,9 @@ final class ScreenTimeManager {
             try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
             await MainActor.run {
                 isAuthorized = true
+                // Persist authorization state
+                UserDefaults.standard.set(true, forKey: Self.authorizationKey)
+                sharedDefaults.set(true, forKey: Self.authorizationKey)
             }
         } catch {
             print("ScreenTimeManager: Authorization failed: \(error)")
@@ -71,7 +75,16 @@ final class ScreenTimeManager {
 
     /// Check current authorization status
     private func checkAuthorization() {
-        isAuthorized = AuthorizationCenter.shared.authorizationStatus == .approved
+        // Check live status first
+        if AuthorizationCenter.shared.authorizationStatus == .approved {
+            isAuthorized = true
+            return
+        }
+
+        // Fall back to persisted state (API may not be ready immediately after app launch)
+        let persistedAuth = sharedDefaults.bool(forKey: Self.authorizationKey)
+            || UserDefaults.standard.bool(forKey: Self.authorizationKey)
+        isAuthorized = persistedAuth
     }
 
     // MARK: - Shielding

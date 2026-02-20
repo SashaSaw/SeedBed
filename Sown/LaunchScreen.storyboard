@@ -7,11 +7,6 @@
         <capability name="Safe area layout guides" minToolsVersion="9.0"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
-    <customFonts key="customFonts">
-        <array key="PatrickHand-Regular.ttf">
-            <string>PatrickHand-Regular</string>
-        </array>
-    </customFonts>
     <scenes>
         <!--View Controller-->
         <scene sceneID="EHf-IW-A2E">
@@ -22,7 +17,7 @@
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
                             <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" spacing="32" translatesAutoresizingMaskIntoConstraints="NO" id="fI1-uh-DS7">
-                                <rect key="frame" x="0.0" y="0.0" width="393" height="1106"/>
+                                <rect key="frame" x="0.0" y="0.0" width="393" height="1057"/>
                                 <subviews>
                                     <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="IK6-bU-OaJ">
                                         <rect key="frame" x="0.0" y="0.0" width="393" height="1"/>
@@ -249,7 +244,7 @@
                                         </constraints>
                                     </view>
                                     <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="SoB-rA-vqd">
-                                        <rect key="frame" x="0.0" y="1056" width="393" height="50"/>
+                                        <rect key="frame" x="0.0" y="1056" width="393" height="1"/>
                                         <color key="backgroundColor" name="Line"/>
                                         <constraints>
                                             <constraint firstAttribute="height" constant="1" id="68B-ZN-uXb"/>
@@ -257,12 +252,13 @@
                                     </view>
                                 </subviews>
                             </stackView>
-                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="🌱" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="i0n-hj-ZB7">
-                                <rect key="frame" x="179" y="386.33333333333326" width="35" height="47.666666666666686"/>
-                                <fontDescription key="fontDescription" name="PatrickHand-Regular" family="Patrick Hand" pointSize="35"/>
-                                <color key="textColor" name="NavyText"/>
-                                <nil key="highlightedColor"/>
-                            </label>
+                            <imageView userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="IconNoBg" translatesAutoresizingMaskIntoConstraints="NO" id="launch-icon">
+                                <rect key="frame" x="146" y="376" width="100" height="100"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" constant="100" id="icon-width"/>
+                                    <constraint firstAttribute="height" constant="100" id="icon-height"/>
+                                </constraints>
+                            </imageView>
                             <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="redLine-001">
                                 <rect key="frame" x="40" y="0.0" width="1" height="852"/>
                                 <color key="backgroundColor" red="0.9882352941176471" green="0.50588235294117645" blue="0.50588235294117645" alpha="0.29999999999999999" colorSpace="custom" customColorSpace="sRGB"/>
@@ -274,8 +270,8 @@
                         <viewLayoutGuide key="safeArea" id="Bcu-3y-fUS"/>
                         <color key="backgroundColor" name="Background"/>
                         <constraints>
-                            <constraint firstItem="i0n-hj-ZB7" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="img-cx-001"/>
-                            <constraint firstItem="i0n-hj-ZB7" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" constant="-16" id="img-cy-001"/>
+                            <constraint firstItem="launch-icon" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="icon-centerX"/>
+                            <constraint firstItem="launch-icon" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" id="icon-centerY"/>
                             <constraint firstItem="redLine-001" firstAttribute="bottom" secondItem="Ze5-6b-2t3" secondAttribute="bottom" id="redLine-bot-001"/>
                             <constraint firstItem="redLine-001" firstAttribute="leading" secondItem="Ze5-6b-2t3" secondAttribute="leading" constant="40" id="redLine-lead-001"/>
                             <constraint firstItem="redLine-001" firstAttribute="top" secondItem="Ze5-6b-2t3" secondAttribute="top" id="redLine-top-001"/>
@@ -291,14 +287,12 @@
         </scene>
     </scenes>
     <resources>
+        <image name="IconNoBg" width="100" height="100"/>
         <namedColor name="Background">
             <color red="0.99215686274509807" green="0.97254901960784312" blue="0.90588235294117647" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>
         <namedColor name="Line">
             <color red="0.83137254901960789" green="0.83137254901960789" blue="0.83137254901960789" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
-        </namedColor>
-        <namedColor name="NavyText">
-            <color red="0.11764705882352941" green="0.16470588235294117" blue="0.29019607843137257" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>
     </resources>
 </document>

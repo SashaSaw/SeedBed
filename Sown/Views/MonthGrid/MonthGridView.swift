@@ -285,23 +285,27 @@ struct MonthGridContentView: View {
         return columnCount > 4
     }
 
+    /// Grid cell size from theme (32pt squares)
+    private let gridSize: CGFloat = JournalTheme.Dimensions.gridCellSize
+
     /// Calculates the x-offset where negative habit columns begin
     private var negativeColumnXOffset: CGFloat {
-        let dayColumnWidth: CGFloat = 66 // 50 + 8*2
-        let habitColumnWidth: CGFloat = 68 // 60 + 4*2
+        let margin = gridSize // 32pt left margin
+        let dayColumnWidth = gridSize // 32pt
+        let habitColumnWidth = gridSize // 32pt per habit
         let positiveColumns = CGFloat(standaloneHabits.count + groups.count)
-        return dayColumnWidth + positiveColumns * habitColumnWidth
+        return margin + dayColumnWidth + positiveColumns * habitColumnWidth
     }
 
     var body: some View {
         AxisLockedScrollView(allowHorizontalScroll: needsHorizontalScroll) {
             // Sticky header
             VStack(alignment: .leading, spacing: 0) {
-                // Month header
+                // Month header (aligned with grid - starts at second column)
                 Text(Self.monthFormatter.string(from: selectedMonth))
-                    .font(.custom("PatrickHand-Regular", size: 20))
+                    .font(.custom("PatrickHand-Regular", size: 28))
                     .foregroundStyle(JournalTheme.Colors.inkBlack)
-                    .padding(.horizontal, 16)
+                    .padding(.leading, gridSize) // One grid cell left margin
                     .padding(.vertical, 12)
 
                 if hasContent {
@@ -380,63 +384,77 @@ struct MonthGridContentView: View {
     }
 }
 
-/// Header row with habit and group names
+/// Header row with habit and group names (vertical titles)
 struct HabitHeaderRowView: View {
     let habits: [Habit]
     let groups: [HabitGroup]
     let negativeHabits: [Habit]
     let needsHorizontalScroll: Bool
 
+    private let gridSize: CGFloat = JournalTheme.Dimensions.gridCellSize // 32pt
+
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(alignment: .bottom, spacing: 0) {
+            // Left margin (one grid cell)
+            Spacer()
+                .frame(width: gridSize)
+
             // Day column header
             Text("Day")
                 .font(JournalTheme.Fonts.sectionHeader())
                 .foregroundStyle(JournalTheme.Colors.inkBlue)
-                .frame(width: 50, alignment: .leading)
-                .padding(.horizontal, 8)
+                .frame(width: gridSize, alignment: .leading)
 
-            // Positive habit column headers
+            // Positive habit column headers (vertical, text starts from bottom)
             ForEach(habits) { habit in
                 Text(habit.name)
-                    .font(.custom("PatrickHand-Regular", size: 11))
+                    .font(.custom("PatrickHand-Regular", size: 10))
                     .foregroundStyle(JournalTheme.Colors.inkBlack)
-                    .lineLimit(2)
-                    .frame(width: 60, alignment: .center)
-                    .padding(.horizontal, 4)
+                    .lineLimit(1)
+                    .fixedSize()
+                    .rotationEffect(.degrees(-90), anchor: .topLeading)
+                    .frame(width: gridSize, height: 70, alignment: .bottomLeading)
             }
 
-            // Group column headers
+            // Group column headers (vertical, text starts from bottom)
             ForEach(groups) { group in
                 Text(group.name)
-                    .font(.custom("PatrickHand-Regular", size: 11))
+                    .font(.custom("PatrickHand-Regular", size: 10))
                     .foregroundStyle(JournalTheme.Colors.inkBlue) // Blue to distinguish groups
-                    .lineLimit(2)
-                    .frame(width: 60, alignment: .center)
-                    .padding(.horizontal, 4)
+                    .lineLimit(1)
+                    .fixedSize()
+                    .rotationEffect(.degrees(-90), anchor: .topLeading)
+                    .frame(width: gridSize, height: 70, alignment: .bottomLeading)
             }
 
-            // Negative habit column headers (no per-row divider - handled by continuous overlay)
+            // Negative habit column headers (vertical, text starts from bottom)
             ForEach(negativeHabits) { habit in
                 Text(habit.name)
-                    .font(.custom("PatrickHand-Regular", size: 11))
+                    .font(.custom("PatrickHand-Regular", size: 10))
                     .foregroundStyle(JournalTheme.Colors.negativeRedDark)
-                    .lineLimit(2)
-                    .frame(width: 60, alignment: .center)
-                    .padding(.horizontal, 4)
+                    .lineLimit(1)
+                    .fixedSize()
+                    .rotationEffect(.degrees(-90), anchor: .topLeading)
+                    .frame(width: gridSize, height: 70, alignment: .bottomLeading)
             }
+
+            // Right margin spacer
+            Spacer()
+                .frame(width: gridSize)
         }
         .modifier(ConditionalFixedSize(enabled: needsHorizontalScroll))
-        .padding(.vertical, 8)
+        .frame(height: 80)
+        .padding(.vertical, 4)
         .background(Color.clear)
         .overlay {
             // Bold red dotted line in header row area
             if !negativeHabits.isEmpty {
                 GeometryReader { geo in
-                    let dayColumnWidth: CGFloat = 66
-                    let habitColumnWidth: CGFloat = 68
+                    let margin = gridSize
+                    let dayColumnWidth = gridSize
+                    let habitColumnWidth = gridSize
                     let positiveColumns = CGFloat(habits.count + groups.count)
-                    let xOffset = dayColumnWidth + positiveColumns * habitColumnWidth - 2.5
+                    let xOffset = margin + dayColumnWidth + positiveColumns * habitColumnWidth - 1
 
                     Path { path in
                         path.move(to: CGPoint(x: xOffset, y: 0))
@@ -479,6 +497,8 @@ struct DayRowView: View {
     var onHobbyTap: ((Habit, Date) -> Void)? = nil
     var onGroupHobbyTap: ((HabitGroup, Date) -> Void)? = nil
 
+    private let gridSize: CGFloat = JournalTheme.Dimensions.gridCellSize // 32pt
+
     // Static formatters for performance
     private static let dayFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -502,95 +522,102 @@ struct DayRowView: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            // Day number and weekday
-            VStack(alignment: .leading, spacing: 0) {
-                Text(Self.dayFormatter.string(from: date))
-                    .font(.system(size: 14, weight: isToday ? .bold : .regular, design: .monospaced))
-                    .foregroundStyle(isToday ? JournalTheme.Colors.inkBlue : JournalTheme.Colors.inkBlack)
+            // Content area with background (excludes right margin)
+            HStack(spacing: 0) {
+                // Left margin (one grid cell)
+                Spacer()
+                    .frame(width: gridSize)
 
-                Text(Self.weekdayFormatter.string(from: date))
-                    .font(.custom("PatrickHand-Regular", size: 9))
-                    .foregroundStyle(JournalTheme.Colors.completedGray)
-            }
-            .frame(width: 50, alignment: .leading)
-            .padding(.horizontal, 8)
+                // Day number and weekday
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(Self.dayFormatter.string(from: date))
+                        .font(.system(size: 14, weight: isToday ? .bold : .regular, design: .monospaced))
+                        .foregroundStyle(isToday ? JournalTheme.Colors.inkBlue : JournalTheme.Colors.inkBlack)
 
-            // Positive habit completion cells
-            ForEach(habits) { habit in
-                let preCreation = Calendar.current.startOfDay(for: date) < Calendar.current.startOfDay(for: habit.createdAt)
-                GridCellView(
-                    isCompleted: habit.isCompleted(for: date),
-                    habitType: habit.type,
-                    isFuture: isFuture,
-                    showCross: showGoodDayHighlight, // Only show crosses in must-do view
-                    isHobby: habit.isHobby,
-                    hasHobbyContent: habit.isHobby && habit.log(for: date)?.hasContent == true,
-                    isPreCreation: preCreation
-                )
-                .frame(width: 60)
-                .padding(.horizontal, 4)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    if habit.isHobby, !isFuture, habit.isCompleted(for: date) {
-                        onHobbyTap?(habit, date)
+                    Text(Self.weekdayFormatter.string(from: date))
+                        .font(.custom("PatrickHand-Regular", size: 9))
+                        .foregroundStyle(JournalTheme.Colors.completedGray)
+                }
+                .frame(width: gridSize, alignment: .leading)
+
+                // Positive habit completion cells
+                ForEach(habits) { habit in
+                    let preCreation = Calendar.current.startOfDay(for: date) < Calendar.current.startOfDay(for: habit.createdAt)
+                    GridCellView(
+                        isCompleted: habit.isCompleted(for: date),
+                        habitType: habit.type,
+                        isFuture: isFuture,
+                        showCross: showGoodDayHighlight, // Only show crosses in must-do view
+                        isHobby: habit.isHobby,
+                        hasHobbyContent: habit.isHobby && habit.log(for: date)?.hasContent == true,
+                        isPreCreation: preCreation
+                    )
+                    .frame(width: gridSize, height: gridSize)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        if habit.isHobby, !isFuture, habit.isCompleted(for: date) {
+                            onHobbyTap?(habit, date)
+                        }
                     }
                 }
-            }
 
-            // Group completion cells
-            ForEach(groups) { group in
-                let groupHabits = allHabits.filter { group.habitIds.contains($0.id) }
-                let earliestCreation = groupHabits.map { $0.createdAt }.min() ?? Date()
-                let preCreation = Calendar.current.startOfDay(for: date) < Calendar.current.startOfDay(for: earliestCreation)
-                let groupHasHobbyContent = groupHabits.contains { habit in
-                    habit.isHobby && habit.isCompleted(for: date) && habit.log(for: date)?.hasContent == true
-                }
-                GridCellView(
-                    isCompleted: group.isSatisfied(habits: allHabits, for: date),
-                    habitType: .positive, // Groups are always positive
-                    isFuture: isFuture,
-                    showCross: showGoodDayHighlight,
-                    isHobby: groupHasHobbyContent,
-                    hasHobbyContent: groupHasHobbyContent,
-                    isPreCreation: preCreation
-                )
-                .frame(width: 60)
-                .padding(.horizontal, 4)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    if groupHasHobbyContent, !isFuture {
-                        onGroupHobbyTap?(group, date)
+                // Group completion cells
+                ForEach(groups) { group in
+                    let groupHabits = allHabits.filter { group.habitIds.contains($0.id) }
+                    let earliestCreation = groupHabits.map { $0.createdAt }.min() ?? Date()
+                    let preCreation = Calendar.current.startOfDay(for: date) < Calendar.current.startOfDay(for: earliestCreation)
+                    let groupHasHobbyContent = groupHabits.contains { habit in
+                        habit.isHobby && habit.isCompleted(for: date) && habit.log(for: date)?.hasContent == true
+                    }
+                    GridCellView(
+                        isCompleted: group.isSatisfied(habits: allHabits, for: date),
+                        habitType: .positive, // Groups are always positive
+                        isFuture: isFuture,
+                        showCross: showGoodDayHighlight,
+                        isHobby: groupHasHobbyContent,
+                        hasHobbyContent: groupHasHobbyContent,
+                        isPreCreation: preCreation
+                    )
+                    .frame(width: gridSize, height: gridSize)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        if groupHasHobbyContent, !isFuture {
+                            onGroupHobbyTap?(group, date)
+                        }
                     }
                 }
-            }
 
-            // Negative habit cells (no per-cell background - handled by continuous overlay)
-            ForEach(negativeHabits) { habit in
-                let preCreation = Calendar.current.startOfDay(for: date) < Calendar.current.startOfDay(for: habit.createdAt)
-                GridCellView(
-                    isCompleted: habit.isCompleted(for: date),
-                    habitType: habit.type,
-                    isFuture: isFuture,
-                    showCross: true, // Always show indicator for negative habits
-                    isPreCreation: preCreation
-                )
-                .frame(width: 60)
-                .padding(.horizontal, 4)
+                // Negative habit cells (no per-cell background - handled by continuous overlay)
+                ForEach(negativeHabits) { habit in
+                    let preCreation = Calendar.current.startOfDay(for: date) < Calendar.current.startOfDay(for: habit.createdAt)
+                    GridCellView(
+                        isCompleted: habit.isCompleted(for: date),
+                        habitType: habit.type,
+                        isFuture: isFuture,
+                        showCross: true, // Always show indicator for negative habits
+                        isPreCreation: preCreation
+                    )
+                    .frame(width: gridSize, height: gridSize)
+                }
             }
+            .background(
+                Group {
+                    if showGoodDayHighlight && isGoodDay && !isFuture {
+                        JournalTheme.Colors.goodDayGreen.opacity(0.4)
+                    } else if isToday {
+                        JournalTheme.Colors.lineMedium.opacity(0.2)
+                    } else {
+                        Color.clear
+                    }
+                }
+            )
+
+            // Right margin spacer (outside background)
+            Spacer()
+                .frame(width: gridSize)
         }
         .modifier(ConditionalFixedSize(enabled: needsHorizontalScroll))
-        .padding(.vertical, 6)
-        .background(
-            Group {
-                if showGoodDayHighlight && isGoodDay && !isFuture {
-                    JournalTheme.Colors.goodDayGreen.opacity(0.4)
-                } else if isToday {
-                    JournalTheme.Colors.lineMedium.opacity(0.2)
-                } else {
-                    Color.clear
-                }
-            }
-        )
+        .frame(height: gridSize)
     }
 }
 
@@ -604,6 +631,8 @@ struct GridCellView: View {
     var hasHobbyContent: Bool = false
     var isPreCreation: Bool = false // Date is before habit was created
 
+    private let iconSize: CGFloat = 24
+
     var body: some View {
         ZStack {
             Group {
@@ -612,25 +641,23 @@ struct GridCellView: View {
                     Color.clear
                 } else if isPreCreation {
                     // Before this habit existed — hand-drawn dash
-                    HandDrawnDash(size: 18)
+                    HandDrawnDash(size: iconSize)
                 } else if habitType == .negative {
                     // Negative habits: inverted logic
                     // Completed = slipped (bad) = cross
-                    // Not completed = avoided (good) = empty/dash
+                    // Not completed = avoided (good) = dash
                     if isCompleted {
-                        HandDrawnCross(size: 18, color: JournalTheme.Colors.negativeRedDark)
+                        HandDrawnCross(size: iconSize, color: JournalTheme.Colors.negativeRedDark)
                     } else {
-                        // Show subtle dash to indicate "no slip"
-                        Text("–")
-                            .font(.custom("PatrickHand-Regular", size: 14))
-                            .foregroundStyle(JournalTheme.Colors.completedGray.opacity(0.5))
+                        // Show subtle hand-drawn dash to indicate "no slip"
+                        HandDrawnDash(size: iconSize, color: JournalTheme.Colors.completedGray.opacity(0.5))
                     }
                 } else if isCompleted {
                     // Positive habit completed - show green checkmark
-                    HandDrawnCheckmark(size: 18, color: JournalTheme.Colors.goodDayGreenDark)
+                    HandDrawnCheckmark(size: iconSize, color: JournalTheme.Colors.goodDayGreenDark)
                 } else if showCross {
                     // Not completed in must-do view - show cross
-                    HandDrawnCross(size: 18, color: JournalTheme.Colors.negativeRedDark.opacity(0.6))
+                    HandDrawnCross(size: iconSize, color: JournalTheme.Colors.negativeRedDark.opacity(0.6))
                 } else {
                     // Not completed in nice-to-do view - empty
                     Color.clear
@@ -645,7 +672,6 @@ struct GridCellView: View {
                     .offset(x: 10, y: -10)
             }
         }
-        .frame(width: 24, height: 24)
     }
 }
 

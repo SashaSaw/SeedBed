@@ -184,6 +184,7 @@ struct SettingsView: View {
                 VStack(spacing: 12) {
                     TextField("Enter your name", text: $editingName)
                         .font(.custom("PatrickHand-Regular", size: 16))
+                        .foregroundStyle(JournalTheme.Colors.inkBlack)
                         .padding(12)
                         .background(
                             RoundedRectangle(cornerRadius: 8)

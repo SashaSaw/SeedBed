@@ -32,11 +32,11 @@ class ShieldConfigurationExtension: ShieldConfigurationDataSource {
             backgroundColor: UIColor(red: 253/255, green: 248/255, blue: 231/255, alpha: 1.0), // paper color
             icon: UIImage(named: "IconNoBg"),
             title: ShieldConfiguration.Label(
-                text: "This app is blocked🔒",
+                text: "Sorry, \(displayName) is blocked🔒",
                 color: UIColor(red: 30/255, green: 42/255, blue: 74/255, alpha: 1.0) // inkBlack
             ),
             subtitle: ShieldConfiguration.Label(
-                text: "\(displayName) can wait. Open up sown to see what you should be prioritising right now",
+                text: "\(displayName) can wait. Open up sown to see what you should be prioritising right now or unblock your apps for 5 mins.",
                 color: UIColor(red: 140/255, green: 140/255, blue: 140/255, alpha: 1.0)
             ),
             primaryButtonLabel: ShieldConfiguration.Label(

@@ -15,7 +15,7 @@ private struct ParsedCriterion: Identifiable {
 /// Displays input fields for each criterion, plus Cancel/Save buttons.
 struct SuccessCriteriaOverlay: View {
     let habit: Habit
-    let onSave: () -> Void
+    let onSave: (Double?) -> Void
     let onCancel: () -> Void
 
     @State private var criteria: [ParsedCriterion] = []
@@ -67,7 +67,11 @@ struct SuccessCriteriaOverlay: View {
 
                     Button {
                         Feedback.ding()
-                        onSave()
+                        // Get the first numeric value entered for persistence
+                        let primaryValue: Double? = criteria.first(where: { !$0.isTime }).flatMap {
+                            Double($0.enteredValue)
+                        }
+                        onSave(primaryValue)
                     } label: {
                         Text("Save")
                             .font(.custom("PatrickHand-Regular", size: 16))

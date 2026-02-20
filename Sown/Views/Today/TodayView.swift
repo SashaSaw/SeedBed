@@ -272,7 +272,11 @@ struct TodayContentView: View {
             if showCriteriaOverlay, let habit = criteriaHabit {
                 SuccessCriteriaOverlay(
                     habit: habit,
-                    onSave: {
+                    onSave: { value in
+                        // Persist the entered value to DailyLog
+                        if let value = value {
+                            store.setCompletion(for: habit, completed: true, value: value, on: selectedDate)
+                        }
                         withAnimation(.easeInOut(duration: 0.2)) {
                             showCriteriaOverlay = false
                         }
@@ -1249,13 +1253,8 @@ struct TodayContentView: View {
                         onComplete: { },
                         onUncomplete: { store.setCompletion(for: habit, completed: false, on: selectedDate) },
                         onArchive: { store.archiveHabit(habit) },
-                        onTap: { selectedHabit = habit },
-                        onLongPress: {
-                            withAnimation(.easeInOut(duration: 0.25)) {
-                                isSelectingForGroup = true
-                                selectedHabitIdsForGroup = [habit.id]
-                            }
-                        }
+                        onTap: { store.setCompletion(for: habit, completed: false, on: selectedDate) },
+                        onLongPress: { selectedHabit = habit }
                     )
                     .opacity(0.6)
                 }
@@ -1269,13 +1268,8 @@ struct TodayContentView: View {
                         onComplete: { },
                         onUncomplete: { store.setCompletion(for: habit, completed: false, on: selectedDate) },
                         onArchive: { store.archiveHabit(habit) },
-                        onTap: { selectedHabit = habit },
-                        onLongPress: {
-                            withAnimation(.easeInOut(duration: 0.25)) {
-                                isSelectingForGroup = true
-                                selectedHabitIdsForGroup = [habit.id]
-                            }
-                        }
+                        onTap: { store.setCompletion(for: habit, completed: false, on: selectedDate) },
+                        onLongPress: { selectedHabit = habit }
                     )
                     .opacity(0.6)
                 }

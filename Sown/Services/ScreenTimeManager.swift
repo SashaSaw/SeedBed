@@ -28,8 +28,12 @@ final class ScreenTimeManager {
     /// Whether shields are currently applied
     var isShielding: Bool = false
 
+    /// Apps blocked due to Don't Do limit exceeded (separate from schedule)
+    private var failureBlockedApps: Set<ApplicationToken> = []
+
     // MARK: - Private
 
+    private static let failureBlockedAppsKey = "failureBlockedApps"
     private let settingsStore = ManagedSettingsStore()
     private let activityCenter = DeviceActivityCenter()
     private static let selectionKey = "screenTimeSelection"
@@ -51,6 +55,8 @@ final class ScreenTimeManager {
         checkAuthorization()
         // Load saved selection
         loadSelection()
+        // Load failure-blocked apps from shared defaults
+        loadFailureBlockedApps()
     }
 
     // MARK: - Authorization
@@ -91,7 +97,9 @@ final class ScreenTimeManager {
 
     /// Apply shields to the selected apps — they'll show a system shield when opened
     func applyShields() {
-        let applications = activitySelection.applicationTokens
+        // Combine schedule-blocked apps with failure-blocked apps
+        var applications = activitySelection.applicationTokens
+        applications.formUnion(failureBlockedApps)
         let categories = activitySelection.categoryTokens
 
         if applications.isEmpty && categories.isEmpty {
@@ -112,6 +120,51 @@ final class ScreenTimeManager {
         settingsStore.shield.applications = nil
         settingsStore.shield.applicationCategories = nil
         isShielding = false
+    }
+
+    // MARK: - Failure Blocking (Don't Do habits)
+
+    /// Block a specific app due to exceeding a Don't Do limit
+    func blockAppForFailure(_ appToken: ApplicationToken) {
+        failureBlockedApps.insert(appToken)
+        saveFailureBlockedApps()
+        applyShields()
+    }
+
+    /// Clear all failure-blocked apps (called at midnight)
+    func clearFailureBlocks() {
+        failureBlockedApps.removeAll()
+        saveFailureBlockedApps()
+        // Re-apply shields to remove the failure blocks but keep schedule blocks
+        if BlockSettings.shared.isEnabled {
+            applyShields()
+        } else {
+            removeShields()
+        }
+    }
+
+    /// Load failure-blocked apps from shared defaults
+    private func loadFailureBlockedApps() {
+        let blockedAppsData = sharedDefaults.array(forKey: Self.failureBlockedAppsKey) as? [Data] ?? []
+        failureBlockedApps = Set(blockedAppsData.compactMap { data in
+            try? PropertyListDecoder().decode(ApplicationToken.self, from: data)
+        })
+    }
+
+    /// Save failure-blocked apps to shared defaults
+    private func saveFailureBlockedApps() {
+        let blockedAppsData = failureBlockedApps.compactMap { token in
+            try? PropertyListEncoder().encode(token)
+        }
+        sharedDefaults.set(blockedAppsData, forKey: Self.failureBlockedAppsKey)
+    }
+
+    /// Sync failure-blocked apps from extension (call on app become active)
+    func syncFailureBlockedApps() {
+        loadFailureBlockedApps()
+        if !failureBlockedApps.isEmpty && BlockSettings.shared.isEnabled {
+            applyShields()
+        }
     }
 
     // MARK: - Schedule Monitoring

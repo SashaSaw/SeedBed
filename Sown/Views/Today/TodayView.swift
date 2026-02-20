@@ -498,6 +498,9 @@ struct TodayContentView: View {
 
                 // Check Screen Time completions when app becomes active
                 store.checkScreenTimeCompletions(triggerNotification: false)
+
+                // Sync failure-blocked apps from extension
+                ScreenTimeManager.shared.syncFailureBlockedApps()
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
@@ -507,6 +510,10 @@ struct TodayContentView: View {
                 selectedDate = Date()
                 lastKnownDay = today
                 wasGoodDay = store.isGoodDay(for: selectedDate)
+
+                // Clear failure blocks at midnight
+                ScreenTimeManager.shared.clearFailureBlocks()
+                ScreenTimeUsageManager.shared.clearSlippedHabits(for: Calendar.current.date(byAdding: .day, value: -1, to: Date())!)
             }
         }
     }
@@ -1144,23 +1151,43 @@ struct TodayContentView: View {
                 sectionHeader("DON'T-DOS:", color: JournalTheme.Colors.negativeRedDark)
 
                 ForEach(store.negativeHabits) { habit in
-                    NegativeHabitLinedRow(
-                        habit: habit,
-                        isCompleted: habit.isCompleted(for: selectedDate),
-                        daysSince: store.calculateDaysSinceLastDone(for: habit),
-                        lineHeight: lineHeight,
-                        onComplete: { store.setCompletion(for: habit, completed: true, on: selectedDate) },
-                        onUncomplete: { store.setCompletion(for: habit, completed: false, on: selectedDate) },
-                        onArchive: { store.archiveHabit(habit) },
-                        onTap: { selectedHabit = habit },
-                        onLongPress: {
-                            withAnimation(.easeInOut(duration: 0.25)) {
-                                isSelectingForGroup = true
-                                selectedHabitIdsForGroup = [habit.id]
-                            }
-                        },
-                        isLocked: habit.triggersAppBlockSlip && blockSettings.areNegativeHabitsLockedToday && habit.isCompleted(for: selectedDate)
-                    )
+                    if isSelectingForGroup {
+                        SelectableHabitRow(
+                            habit: habit,
+                            isSelected: selectedHabitIdsForGroup.contains(habit.id),
+                            lineHeight: lineHeight
+                        ) {
+                            toggleGroupSelection(habit)
+                        }
+                    } else {
+                        let isScreenTimeSlipped = habit.isScreenTimeLinked && habit.isCompleted(for: selectedDate)
+                        let isAppBlockSlipped = habit.triggersAppBlockSlip && blockSettings.areNegativeHabitsLockedToday && habit.isCompleted(for: selectedDate)
+                        let isSlipLocked = isScreenTimeSlipped || isAppBlockSlipped
+
+                        NegativeHabitLinedRow(
+                            habit: habit,
+                            isCompleted: habit.isCompleted(for: selectedDate),
+                            daysSince: store.calculateDaysSinceLastDone(for: habit),
+                            lineHeight: lineHeight,
+                            onComplete: { store.setCompletion(for: habit, completed: true, on: selectedDate) },
+                            onUncomplete: {
+                                // Only allow undo if not locked
+                                if !isSlipLocked {
+                                    store.setCompletion(for: habit, completed: false, on: selectedDate)
+                                }
+                                // If locked, do nothing - lock icon already indicates it can't be undone
+                            },
+                            onArchive: { store.archiveHabit(habit) },
+                            onTap: { selectedHabit = habit },
+                            onLongPress: {
+                                withAnimation(.easeInOut(duration: 0.25)) {
+                                    isSelectingForGroup = true
+                                    selectedHabitIdsForGroup = [habit.id]
+                                }
+                            },
+                            isLocked: isSlipLocked
+                        )
+                    }
                 }
                 .animation(.easeInOut(duration: 0.25), value: store.negativeHabits.count)
             }
@@ -1327,14 +1354,20 @@ struct TodayContentView: View {
     // MARK: - Group Selection Helpers
 
     private func toggleGroupSelection(_ habit: Habit) {
-        withAnimation(.easeInOut(duration: 0.15)) {
-            if selectedHabitIdsForGroup.contains(habit.id) {
-                selectedHabitIdsForGroup.remove(habit.id)
-            } else {
-                selectedHabitIdsForGroup.insert(habit.id)
-            }
-        }
         Feedback.selection()
+
+        if selectedHabitIdsForGroup.contains(habit.id) {
+            selectedHabitIdsForGroup.remove(habit.id)
+
+            // Exit selection mode if no habits are selected
+            if selectedHabitIdsForGroup.isEmpty {
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    isSelectingForGroup = false
+                }
+            }
+        } else {
+            selectedHabitIdsForGroup.insert(habit.id)
+        }
     }
 
 }

@@ -72,6 +72,9 @@ final class Habit {
     var screenTimeTarget: Int? = nil  // Target minutes
     var screenTimeAutoComplete: Bool = true
 
+    // For negative habits: whether to block the app after the limit is exceeded
+    var screenTimeBlockOnExceed: Bool = false
+
     // Notification scheduling
     var notificationsEnabled: Bool = false
     var dailyNotificationMinutes: [Int] = []      // Minutes from midnight (0-1440), up to 5
@@ -225,6 +228,11 @@ extension Habit {
     /// Whether this habit is linked to a Screen Time app
     var isScreenTimeLinked: Bool {
         screenTimeAppToken != nil && screenTimeTarget != nil
+    }
+
+    /// Whether this negative habit should auto-slip when Screen Time limit is exceeded
+    var screenTimeAutoSlip: Bool {
+        type == .negative && screenTimeAppToken != nil && screenTimeTarget != nil
     }
 }
 

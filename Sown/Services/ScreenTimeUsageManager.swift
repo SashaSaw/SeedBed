@@ -8,6 +8,18 @@ struct HabitScreenTimeConfig: Codable {
     let habitId: String
     let habitName: String
     let targetMinutes: Int
+    let isNegative: Bool       // For Don't Do habits that slip when limit exceeded
+    let blockOnExceed: Bool    // Whether to block the app after limit exceeded
+    var appTokenData: Data?    // Serialized ApplicationToken for blocking
+
+    init(habitId: String, habitName: String, targetMinutes: Int, isNegative: Bool = false, blockOnExceed: Bool = false, appTokenData: Data? = nil) {
+        self.habitId = habitId
+        self.habitName = habitName
+        self.targetMinutes = targetMinutes
+        self.isNegative = isNegative
+        self.blockOnExceed = blockOnExceed
+        self.appTokenData = appTokenData
+    }
 }
 
 /// Manages Screen Time usage monitoring for habit auto-completion
@@ -21,6 +33,7 @@ final class ScreenTimeUsageManager {
     /// Keys for shared UserDefaults
     private static let configsKey = "screenTimeHabitConfigs"
     private static let completedHabitsKey = "screenTimeCompletedHabits"
+    private static let slippedHabitsKey = "screenTimeSlippedHabits"
 
     /// Shared UserDefaults for app <-> extension communication
     private var sharedDefaults: UserDefaults {
@@ -116,7 +129,10 @@ final class ScreenTimeUsageManager {
             return HabitScreenTimeConfig(
                 habitId: habit.id.uuidString,
                 habitName: habit.name,
-                targetMinutes: targetMinutes
+                targetMinutes: targetMinutes,
+                isNegative: habit.type == .negative,
+                blockOnExceed: habit.screenTimeBlockOnExceed,
+                appTokenData: habit.screenTimeAppTokenData
             )
         }
 
@@ -164,6 +180,49 @@ final class ScreenTimeUsageManager {
         let dateStr = dateString(for: date)
         completed.removeAll { $0.hasSuffix("_\(dateStr)") }
         sharedDefaults.set(completed, forKey: Self.completedHabitsKey)
+    }
+
+    // MARK: - Slip Tracking (for negative habits)
+
+    /// Get habit IDs that have been slipped via Screen Time today
+    /// Format: "{habitId}_{yyyy-MM-dd}"
+    func getSlippedHabitIds(for date: Date = Date()) -> Set<String> {
+        guard let slipped = sharedDefaults.array(forKey: Self.slippedHabitsKey) as? [String] else {
+            return []
+        }
+
+        let todayString = dateString(for: date)
+        return Set(slipped.filter { $0.hasSuffix("_\(todayString)") }
+            .compactMap { $0.components(separatedBy: "_").first })
+    }
+
+    /// Mark a negative habit as slipped by Screen Time (called from extension)
+    static func markHabitSlipped(habitId: String, date: Date = Date()) {
+        let defaults = UserDefaults(suiteName: appGroupID) ?? .standard
+        var slipped = defaults.array(forKey: slippedHabitsKey) as? [String] ?? []
+
+        let dateString = {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd"
+            return formatter.string(from: date)
+        }()
+
+        let entry = "\(habitId)_\(dateString)"
+        if !slipped.contains(entry) {
+            slipped.append(entry)
+            defaults.set(slipped, forKey: slippedHabitsKey)
+        }
+    }
+
+    /// Clear slipped habits for a date (called at midnight)
+    func clearSlippedHabits(for date: Date) {
+        guard var slipped = sharedDefaults.array(forKey: Self.slippedHabitsKey) as? [String] else {
+            return
+        }
+
+        let dateStr = dateString(for: date)
+        slipped.removeAll { $0.hasSuffix("_\(dateStr)") }
+        sharedDefaults.set(slipped, forKey: Self.slippedHabitsKey)
     }
 
     private func dateString(for date: Date) -> String {

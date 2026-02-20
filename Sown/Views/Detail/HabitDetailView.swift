@@ -125,248 +125,272 @@ struct HabitDetailView: View {
                         .tracking(2)
 
                     VStack(spacing: 0) {
-                        // Priority
-                        settingsRow(
-                            icon: "star.fill",
-                            iconColor: JournalTheme.Colors.amber,
-                            label: "Priority",
-                            value: habit.tier.displayName
-                        ) {
-                            Feedback.selection()
-                            if habit.tier == .mustDo {
-                                // Switching to nice-to-do: if daily, change to weekly 1x
-                                habit.tier = .niceToDo
-                                if habit.frequencyType == .daily {
-                                    habit.frequencyType = .weekly
-                                    habit.frequencyTarget = 1
-                                }
-                            } else {
-                                // Switching to must-do: if not daily, change to daily
-                                habit.tier = .mustDo
-                                if habit.frequencyType != .daily {
-                                    habit.frequencyType = .daily
-                                    habit.frequencyTarget = 1
+                        if habit.type == .negative {
+                            // NEGATIVE HABITS: Only show success metric
+                            settingsRow(
+                                icon: "target",
+                                iconColor: JournalTheme.Colors.successGreen,
+                                label: "Success metric",
+                                value: measurementTypeSummary
+                            ) {
+                                Feedback.selection()
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    showMeasurementEditor.toggle()
                                 }
                             }
-                            store.updateHabit(habit)
-                        }
 
-                        Divider().padding(.leading, 48)
-
-                        // Frequency
-                        settingsRow(
-                            icon: "repeat",
-                            iconColor: JournalTheme.Colors.teal,
-                            label: "Frequency",
-                            value: habit.frequencyDisplayName
-                        ) {
-                            Feedback.selection()
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                showFrequencyEditor.toggle()
+                            if showMeasurementEditor {
+                                measurementEditorContent
+                                    .padding(.horizontal, 14)
+                                    .padding(.bottom, 14)
+                                    .transition(.opacity.combined(with: .move(edge: .top)))
                             }
-                        }
+                        } else {
+                            // POSITIVE HABITS: Full settings
 
-                        // Inline frequency editor
-                        if showFrequencyEditor && habit.frequencyType != .once {
-                            VStack(alignment: .leading, spacing: 10) {
-                                Picker("Frequency", selection: Binding(
-                                    get: { habit.frequencyType },
-                                    set: { newValue in
-                                        Feedback.selection()
-                                        habit.frequencyType = newValue
-                                        if newValue == .daily {
-                                            // Daily frequency → must be must-do
-                                            habit.frequencyTarget = 1
-                                            habit.tier = .mustDo
-                                        } else if habit.tier == .mustDo {
-                                            // Non-daily AND was must-do → switch to nice-to-do
-                                            habit.tier = .niceToDo
-                                            if newValue == .weekly && habit.frequencyTarget > 7 {
+                            // Priority
+                            settingsRow(
+                                icon: "star.fill",
+                                iconColor: JournalTheme.Colors.amber,
+                                label: "Priority",
+                                value: habit.tier.displayName
+                            ) {
+                                Feedback.selection()
+                                if habit.tier == .mustDo {
+                                    // Switching to nice-to-do: if daily, change to weekly 1x
+                                    habit.tier = .niceToDo
+                                    if habit.frequencyType == .daily {
+                                        habit.frequencyType = .weekly
+                                        habit.frequencyTarget = 1
+                                    }
+                                } else {
+                                    // Switching to must-do: if not daily, change to daily
+                                    habit.tier = .mustDo
+                                    if habit.frequencyType != .daily {
+                                        habit.frequencyType = .daily
+                                        habit.frequencyTarget = 1
+                                    }
+                                }
+                                store.updateHabit(habit)
+                            }
+
+                            Divider().padding(.leading, 48)
+
+                            // Frequency
+                            settingsRow(
+                                icon: "repeat",
+                                iconColor: JournalTheme.Colors.teal,
+                                label: "Frequency",
+                                value: habit.frequencyDisplayName
+                            ) {
+                                Feedback.selection()
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    showFrequencyEditor.toggle()
+                                }
+                            }
+
+                            // Inline frequency editor
+                            if showFrequencyEditor && habit.frequencyType != .once {
+                                VStack(alignment: .leading, spacing: 10) {
+                                    Picker("Frequency", selection: Binding(
+                                        get: { habit.frequencyType },
+                                        set: { newValue in
+                                            Feedback.selection()
+                                            habit.frequencyType = newValue
+                                            if newValue == .daily {
+                                                // Daily frequency → must be must-do
                                                 habit.frequencyTarget = 1
+                                                habit.tier = .mustDo
+                                            } else if habit.tier == .mustDo {
+                                                // Non-daily AND was must-do → switch to nice-to-do
+                                                habit.tier = .niceToDo
+                                                if newValue == .weekly && habit.frequencyTarget > 7 {
+                                                    habit.frequencyTarget = 1
+                                                }
                                             }
+                                            store.updateHabit(habit)
                                         }
-                                        store.updateHabit(habit)
+                                    )) {
+                                        ForEach(FrequencyType.recurringCases, id: \.self) { freq in
+                                            Text(freq.displayName).tag(freq)
+                                        }
                                     }
-                                )) {
-                                    ForEach(FrequencyType.recurringCases, id: \.self) { freq in
-                                        Text(freq.displayName).tag(freq)
-                                    }
-                                }
-                                .pickerStyle(.segmented)
+                                    .pickerStyle(.segmented)
 
-                                if habit.frequencyType == .weekly {
-                                    Stepper(
-                                        "Target: \(habit.frequencyTarget)x per week",
-                                        value: Binding(
-                                            get: { habit.frequencyTarget },
-                                            set: { Feedback.selection(); habit.frequencyTarget = $0; store.updateHabit(habit) }
-                                        ),
-                                        in: 1...7
-                                    )
-                                    .font(.custom("PatrickHand-Regular", size: 14))
-                                    .foregroundStyle(JournalTheme.Colors.inkBlack)
-                                } else if habit.frequencyType == .monthly {
-                                    Stepper(
-                                        "Target: \(habit.frequencyTarget)x per month",
-                                        value: Binding(
-                                            get: { habit.frequencyTarget },
-                                            set: { Feedback.selection(); habit.frequencyTarget = $0; store.updateHabit(habit) }
-                                        ),
-                                        in: 1...31
-                                    )
-                                    .font(.custom("PatrickHand-Regular", size: 14))
-                                    .foregroundStyle(JournalTheme.Colors.inkBlack)
+                                    if habit.frequencyType == .weekly {
+                                        Stepper(
+                                            "Target: \(habit.frequencyTarget)x per week",
+                                            value: Binding(
+                                                get: { habit.frequencyTarget },
+                                                set: { Feedback.selection(); habit.frequencyTarget = $0; store.updateHabit(habit) }
+                                            ),
+                                            in: 1...7
+                                        )
+                                        .font(.custom("PatrickHand-Regular", size: 14))
+                                        .foregroundStyle(JournalTheme.Colors.inkBlack)
+                                    } else if habit.frequencyType == .monthly {
+                                        Stepper(
+                                            "Target: \(habit.frequencyTarget)x per month",
+                                            value: Binding(
+                                                get: { habit.frequencyTarget },
+                                                set: { Feedback.selection(); habit.frequencyTarget = $0; store.updateHabit(habit) }
+                                            ),
+                                            in: 1...31
+                                        )
+                                        .font(.custom("PatrickHand-Regular", size: 14))
+                                        .foregroundStyle(JournalTheme.Colors.inkBlack)
+                                    }
                                 }
+                                .padding(.horizontal, 14)
+                                .padding(.bottom, 14)
+                                .transition(.opacity.combined(with: .move(edge: .top)))
                             }
-                            .padding(.horizontal, 14)
-                            .padding(.bottom, 14)
-                            .transition(.opacity.combined(with: .move(edge: .top)))
-                        }
 
-                        Divider().padding(.leading, 48)
+                            Divider().padding(.leading, 48)
 
-                        // Reminders toggle
-                        HStack(spacing: 12) {
-                            Image(systemName: "bell.fill")
-                                .font(.custom("PatrickHand-Regular", size: 14))
-                                .foregroundStyle(JournalTheme.Colors.amber)
-                                .frame(width: 24)
-
-                            Text("Reminders")
-                                .font(JournalTheme.Fonts.habitName())
-                                .foregroundStyle(JournalTheme.Colors.inkBlack)
-
-                            Spacer()
-
-                            Toggle("", isOn: Binding(
-                                get: { habit.notificationsEnabled },
-                                set: { newValue in
-                                    Feedback.selection()
-                                    habit.notificationsEnabled = newValue
-                                    store.updateHabit(habit)
-                                }
-                            ))
-                            .labelsHidden()
-                            .tint(JournalTheme.Colors.amber)
-                        }
-                        .padding(14)
-
-                        Divider().padding(.leading, 48)
-
-                        // Notes & Photos toggle
-                        HStack(spacing: 12) {
-                            Image(systemName: "camera.fill")
-                                .font(.custom("PatrickHand-Regular", size: 14))
-                                .foregroundStyle(JournalTheme.Colors.teal)
-                                .frame(width: 24)
-
-                            Text("Notes & photos")
-                                .font(JournalTheme.Fonts.habitName())
-                                .foregroundStyle(JournalTheme.Colors.inkBlack)
-
-                            Spacer()
-
-                            Toggle("", isOn: Binding(
-                                get: { habit.enableNotesPhotos },
-                                set: { newValue in
-                                    Feedback.selection()
-                                    habit.enableNotesPhotos = newValue
-                                    habit.isHobby = newValue
-                                    store.updateHabit(habit)
-                                }
-                            ))
-                            .labelsHidden()
-                            .tint(JournalTheme.Colors.teal)
-                        }
-                        .padding(14)
-
-                        Divider().padding(.leading, 48)
-
-                        // Habit prompt — shown for all habits
-                        if editingPrompt {
+                            // Reminders toggle
                             HStack(spacing: 12) {
-                                Image(systemName: "sparkles")
+                                Image(systemName: "bell.fill")
                                     .font(.custom("PatrickHand-Regular", size: 14))
                                     .foregroundStyle(JournalTheme.Colors.amber)
                                     .frame(width: 24)
 
-                                TextField("e.g. Put on your trainers and step outside", text: $editedPrompt)
-                                    .font(.custom("PatrickHand-Regular", size: 14))
+                                Text("Reminders")
+                                    .font(JournalTheme.Fonts.habitName())
                                     .foregroundStyle(JournalTheme.Colors.inkBlack)
-                                    .textFieldStyle(.plain)
 
-                                Button("Save") {
-                                    Feedback.buttonPress()
-                                    habit.habitPrompt = editedPrompt.trimmingCharacters(in: .whitespaces)
-                                    store.updateHabit(habit)
-                                    editingPrompt = false
-                                }
-                                .font(.custom("PatrickHand-Regular", size: 14))
-                                .foregroundStyle(JournalTheme.Colors.teal)
+                                Spacer()
+
+                                Toggle("", isOn: Binding(
+                                    get: { habit.notificationsEnabled },
+                                    set: { newValue in
+                                        Feedback.selection()
+                                        habit.notificationsEnabled = newValue
+                                        store.updateHabit(habit)
+                                    }
+                                ))
+                                .labelsHidden()
+                                .tint(JournalTheme.Colors.amber)
                             }
                             .padding(14)
-                        } else {
+
+                            Divider().padding(.leading, 48)
+
+                            // Time of Day — directly under reminders
                             settingsRow(
-                                icon: "sparkles",
-                                iconColor: JournalTheme.Colors.amber,
-                                label: "Habit prompt",
-                                value: habit.habitPrompt.isEmpty ? "Not set" : habit.habitPrompt
+                                icon: "clock.fill",
+                                iconColor: JournalTheme.Colors.navy,
+                                label: "Time of day",
+                                value: timeSlotSummary
                             ) {
                                 Feedback.selection()
-                                editedPrompt = habit.habitPrompt
-                                editingPrompt = true
-                            }
-                        }
-
-                        Divider().padding(.leading, 48)
-
-                        // Time of Day — expandable
-                        settingsRow(
-                            icon: "clock.fill",
-                            iconColor: JournalTheme.Colors.navy,
-                            label: "Time of day",
-                            value: timeSlotSummary
-                        ) {
-                            Feedback.selection()
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                showTimeSlots.toggle()
-                            }
-                        }
-
-                        if showTimeSlots {
-                            TimeSlotPicker(selectedSlots: Binding(
-                                get: { Set(habit.scheduleTimes) },
-                                set: { newSlots in
-                                    Feedback.selection()
-                                    habit.scheduleTimes = Array(newSlots)
-                                    store.updateHabit(habit)
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    showTimeSlots.toggle()
                                 }
-                            ))
-                            .padding(.horizontal, 14)
-                            .padding(.bottom, 14)
-                            .transition(.opacity.combined(with: .move(edge: .top)))
-                        }
-
-                        Divider().padding(.leading, 48)
-
-                        // Measurement Type — unified dropdown
-                        settingsRow(
-                            icon: "target",
-                            iconColor: JournalTheme.Colors.successGreen,
-                            label: "Success metric",
-                            value: measurementTypeSummary
-                        ) {
-                            Feedback.selection()
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                showMeasurementEditor.toggle()
                             }
-                        }
 
-                        if showMeasurementEditor {
-                            measurementEditorContent
+                            if showTimeSlots {
+                                TimeSlotPicker(selectedSlots: Binding(
+                                    get: { Set(habit.scheduleTimes) },
+                                    set: { newSlots in
+                                        Feedback.selection()
+                                        habit.scheduleTimes = Array(newSlots)
+                                        store.updateHabit(habit)
+                                    }
+                                ))
                                 .padding(.horizontal, 14)
                                 .padding(.bottom, 14)
                                 .transition(.opacity.combined(with: .move(edge: .top)))
+                            }
+
+                            Divider().padding(.leading, 48)
+
+                            // Notes & Photos toggle
+                            HStack(spacing: 12) {
+                                Image(systemName: "camera.fill")
+                                    .font(.custom("PatrickHand-Regular", size: 14))
+                                    .foregroundStyle(JournalTheme.Colors.teal)
+                                    .frame(width: 24)
+
+                                Text("Notes & photos")
+                                    .font(JournalTheme.Fonts.habitName())
+                                    .foregroundStyle(JournalTheme.Colors.inkBlack)
+
+                                Spacer()
+
+                                Toggle("", isOn: Binding(
+                                    get: { habit.enableNotesPhotos },
+                                    set: { newValue in
+                                        Feedback.selection()
+                                        habit.enableNotesPhotos = newValue
+                                        habit.isHobby = newValue
+                                        store.updateHabit(habit)
+                                    }
+                                ))
+                                .labelsHidden()
+                                .tint(JournalTheme.Colors.teal)
+                            }
+                            .padding(14)
+
+                            Divider().padding(.leading, 48)
+
+                            // Habit prompt
+                            if editingPrompt {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "sparkles")
+                                        .font(.custom("PatrickHand-Regular", size: 14))
+                                        .foregroundStyle(JournalTheme.Colors.amber)
+                                        .frame(width: 24)
+
+                                    TextField("e.g. Put on your trainers and step outside", text: $editedPrompt)
+                                        .font(.custom("PatrickHand-Regular", size: 14))
+                                        .foregroundStyle(JournalTheme.Colors.inkBlack)
+                                        .textFieldStyle(.plain)
+
+                                    Button("Save") {
+                                        Feedback.buttonPress()
+                                        habit.habitPrompt = editedPrompt.trimmingCharacters(in: .whitespaces)
+                                        store.updateHabit(habit)
+                                        editingPrompt = false
+                                    }
+                                    .font(.custom("PatrickHand-Regular", size: 14))
+                                    .foregroundStyle(JournalTheme.Colors.teal)
+                                }
+                                .padding(14)
+                            } else {
+                                settingsRow(
+                                    icon: "sparkles",
+                                    iconColor: JournalTheme.Colors.amber,
+                                    label: "Habit prompt",
+                                    value: habit.habitPrompt.isEmpty ? "Not set" : habit.habitPrompt
+                                ) {
+                                    Feedback.selection()
+                                    editedPrompt = habit.habitPrompt
+                                    editingPrompt = true
+                                }
+                            }
+
+                            Divider().padding(.leading, 48)
+
+                            // Success metric
+                            settingsRow(
+                                icon: "target",
+                                iconColor: JournalTheme.Colors.successGreen,
+                                label: "Success metric",
+                                value: measurementTypeSummary
+                            ) {
+                                Feedback.selection()
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    showMeasurementEditor.toggle()
+                                }
+                            }
+
+                            if showMeasurementEditor {
+                                measurementEditorContent
+                                    .padding(.horizontal, 14)
+                                    .padding(.bottom, 14)
+                                    .transition(.opacity.combined(with: .move(edge: .top)))
+                            }
                         }
                     }
                     .background(

@@ -1000,6 +1000,23 @@ final class HabitStore {
 
             autoCompleteScreenTimeHabit(habit, triggerNotification: triggerNotification)
         }
+
+        // Also check for slipped negative habits
+        checkScreenTimeSlips()
+    }
+
+    /// Check all negative Screen Time habits and auto-slip if limit exceeded
+    func checkScreenTimeSlips() {
+        let today = Date()
+        let slippedIds = ScreenTimeUsageManager.shared.getSlippedHabitIds(for: today)
+
+        for habit in negativeHabits where habit.isScreenTimeLinked {
+            guard slippedIds.contains(habit.id.uuidString),
+                  !habit.isCompleted(for: today) else { continue }
+
+            // Mark as slipped (completed = true for negative habits means slipped)
+            setCompletion(for: habit, completed: true, on: today)
+        }
     }
 
     /// Auto-complete a habit via Screen Time
@@ -1036,13 +1053,17 @@ final class HabitStore {
         refreshSmartReminders()
     }
 
-    /// Start monitoring Screen Time for all linked habits
+    /// Start monitoring Screen Time for all linked habits (positive and negative)
     func startScreenTimeMonitoring() {
         guard ScreenTimeManager.shared.isAuthorized else { return }
-        let linkedHabits = screenTimeLinkedHabits
-        guard !linkedHabits.isEmpty else { return }
 
-        ScreenTimeUsageManager.shared.startMonitoringHabits(Array(linkedHabits))
+        // Include both positive Screen Time habits and negative Screen Time habits
+        let positiveLinked = screenTimeLinkedHabits
+        let negativeLinked = negativeHabits.filter { $0.isScreenTimeLinked }
+        let allLinked = Array(Set(positiveLinked + negativeLinked))
+
+        guard !allLinked.isEmpty else { return }
+        ScreenTimeUsageManager.shared.startMonitoringHabits(allLinked)
     }
 
     // MARK: - HealthKit Integration

@@ -641,6 +641,11 @@ final class HabitStore {
         let calendar = Calendar.current
         let yesterday = calendar.date(byAdding: .day, value: -1, to: calendar.startOfDay(for: Date()))!
 
+        // Persist final HealthKit values for yesterday before locking
+        Task {
+            await persistFinalHealthKitValues(for: yesterday)
+        }
+
         // Already locked? Skip
         if let existing = dayRecord(for: yesterday), existing.lockedAt != nil {
             return
@@ -658,6 +663,46 @@ final class HabitStore {
 
         saveContext()
         fetchDayRecords()
+    }
+
+    /// Persist final HealthKit values for a past day (called at day change)
+    /// This ensures that even if the target wasn't reached, the actual value is saved for stats
+    @MainActor
+    func persistFinalHealthKitValues(for date: Date) async {
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: date)
+        guard let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) else { return }
+
+        for habit in healthKitLinkedHabits {
+            guard let metric = habit.healthKitMetric else { continue }
+
+            // Skip if we already have a value stored for this date
+            if habit.completionValue(for: date) != nil { continue }
+
+            // Fetch the historical HealthKit value for this date
+            if let value = await HealthKitManager.shared.fetchValueForDateRange(
+                for: metric,
+                start: startOfDay,
+                end: endOfDay
+            ) {
+                // Only store if there's actual data (not zero)
+                if value > 0 {
+                    // Check if habit was completed (auto or manual)
+                    let wasCompleted = habit.isCompleted(for: date)
+
+                    // Create or update log with the value, preserving completion state
+                    _ = DailyLog.createOrUpdate(
+                        for: habit,
+                        on: date,
+                        completed: wasCompleted,
+                        value: value,
+                        context: modelContext
+                    )
+                }
+            }
+        }
+
+        saveContext()
     }
 
     /// Returns good days in a date range

@@ -210,7 +210,8 @@ struct SuccessCriteriaOverlay: View {
                     isTime: false,
                     targetValue: value,
                     unit: unit,
-                    label: "\(value) \(unit)"
+                    label: "\(value) \(unit)",
+                    enteredValue: value  // Pre-fill with goal amount
                 )
             }
         }

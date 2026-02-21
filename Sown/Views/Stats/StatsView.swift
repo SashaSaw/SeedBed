@@ -25,13 +25,15 @@ struct StatsView: View {
 /// The actual content of the Stats View
 struct StatsContentView: View {
     @Bindable var store: HabitStore
+    @Environment(\.scenePhase) private var scenePhase
     @State private var selectedPeriod: StatsPeriod = .daily
+    @State private var currentDay: Date = Calendar.current.startOfDay(for: Date())
 
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
                 // Good Day Streak at the top
-                GoodDayStreakCard(store: store)
+                GoodDayStreakCard(store: store, today: currentDay)
 
                 // Fulfillment Chart
                 FulfillmentChartCard(store: store)
@@ -45,25 +47,41 @@ struct StatsContentView: View {
                 .pickerStyle(.segmented)
 
                 // Habit Progress Section
-                HabitProgressSection(store: store, period: selectedPeriod)
+                HabitProgressSection(store: store, period: selectedPeriod, today: currentDay)
 
                 Spacer(minLength: 100)
             }
             .padding()
         }
         .linedPaperBackground()
+        .id(currentDay) // Force rebuild when day changes
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                let today = Calendar.current.startOfDay(for: Date())
+                if today != currentDay {
+                    currentDay = today
+                }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
+            let today = Calendar.current.startOfDay(for: Date())
+            if today != currentDay {
+                currentDay = today
+            }
+        }
     }
 }
 
 /// Card showing good day streak
 struct GoodDayStreakCard: View {
     let store: HabitStore
+    let today: Date
     @State private var currentStreak: Int = 0
 
     private func calculateStreak() -> Int {
         var streak = 0
         let calendar = Calendar.current
-        var date = calendar.startOfDay(for: Date())
+        var date = calendar.startOfDay(for: today)
 
         // Check if today is a good day
         if store.isGoodDay(for: date) {
@@ -126,6 +144,9 @@ struct GoodDayStreakCard: View {
                 .shadow(color: .black.opacity(0.05), radius: 5, y: 2)
         )
         .onAppear {
+            currentStreak = calculateStreak()
+        }
+        .onChange(of: today) { _, _ in
             currentStreak = calculateStreak()
         }
     }
@@ -242,6 +263,7 @@ struct FulfillmentChartCard: View {
                     AxisMarks(values: [1, 5, 10]) { _ in
                         AxisValueLabel()
                             .font(.custom("PatrickHand-Regular", size: 10))
+                            .foregroundStyle(JournalTheme.Colors.inkBlack)
                         AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [3]))
                             .foregroundStyle(JournalTheme.Colors.lineLight)
                     }
@@ -250,6 +272,7 @@ struct FulfillmentChartCard: View {
                     AxisMarks(values: .stride(by: .day, count: 7)) { _ in
                         AxisValueLabel(format: .dateTime.day().month(.abbreviated))
                             .font(.custom("PatrickHand-Regular", size: 10))
+                            .foregroundStyle(JournalTheme.Colors.inkBlack)
                         AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [3]))
                             .foregroundStyle(JournalTheme.Colors.lineLight)
                     }
@@ -282,6 +305,71 @@ struct FulfillmentChartCard: View {
 struct HabitProgressSection: View {
     let store: HabitStore
     let period: StatsPeriod
+    let today: Date
+
+    /// Habit display type for sorting priority
+    private enum HabitDisplayType: Int {
+        case barChart = 0   // Hobbies with success criteria - highest priority
+        case negative = 1   // Don't do habits
+        case streak = 2     // Regular tick habits - lowest priority
+    }
+
+    /// Get the display type for a habit
+    private func displayType(for habit: Habit) -> HabitDisplayType {
+        if habit.type == .negative {
+            return .negative
+        }
+        // Only bar chart for measure-based criteria or HealthKit, not time-only
+        let hasTrackableTarget = hasMeasureBasedCriteria(habit: habit) || habit.isHealthKitLinked
+        return hasTrackableTarget ? .barChart : .streak
+    }
+
+    /// Check if a habit has measure-based criteria (not just time-based)
+    private func hasMeasureBasedCriteria(habit: Habit) -> Bool {
+        guard let criteria = habit.successCriteria, !criteria.isEmpty else { return false }
+        let entries = CriteriaEditorView.parseCriteriaString(criteria)
+        return entries.contains { $0.mode == .measure }
+    }
+
+    /// Check if a habit has any data in the last 7 days
+    private func hasData(habit: Habit) -> Bool {
+        let calendar = Calendar.current
+        let todayStart = calendar.startOfDay(for: today)
+        let last7Days = (0..<7).compactMap { calendar.date(byAdding: .day, value: -$0, to: todayStart) }
+
+        for date in last7Days {
+            if habit.type == .negative {
+                // For negative habits, check if there's any recorded state (slip or clean)
+                // A habit has data if it was created before or on this date
+                let habitCreationDate = calendar.startOfDay(for: habit.createdAt)
+                if date >= habitCreationDate {
+                    return true
+                }
+            } else {
+                // For positive habits, check completions or values
+                if habit.isCompleted(for: date) || habit.completionValue(for: date) != nil {
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    /// Sorted habits: those with data first, then by type priority
+    private var sortedHabits: [Habit] {
+        store.recurringHabits.sorted { habit1, habit2 in
+            let hasData1 = hasData(habit: habit1)
+            let hasData2 = hasData(habit: habit2)
+
+            // First sort by whether they have data (with data first)
+            if hasData1 != hasData2 {
+                return hasData1 && !hasData2
+            }
+
+            // Then sort by display type priority
+            return displayType(for: habit1).rawValue < displayType(for: habit2).rawValue
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -299,22 +387,25 @@ struct HabitProgressSection: View {
             } else {
                 switch period {
                 case .daily:
-                    ForEach(store.recurringHabits) { habit in
+                    let habits = sortedHabits
+                    ForEach(habits) { habit in
                         // Negative habits (Don't Do) get their own card showing days clean
                         if habit.type == .negative {
-                            DontDoStreakCard(habit: habit)
+                            DontDoStreakCard(habit: habit, today: today)
                         } else {
-                            // Show bar chart for habits with success criteria OR HealthKit-linked habits
-                            let hasSuccessCriteria = habit.successCriteria != nil && !habit.successCriteria!.isEmpty
-                            let hasTrackableTarget = hasSuccessCriteria || habit.isHealthKitLinked
+                            // Show bar chart only for habits with MEASURE-based criteria or HealthKit
+                            // Time-only habits should show as streak cards
+                            let hasMeasureCriteria = hasMeasureBasedCriteria(habit: habit)
+                            let hasTrackableTarget = hasMeasureCriteria || habit.isHealthKitLinked
 
                             if hasTrackableTarget {
-                                HabitBarChartCard(habit: habit)
+                                HabitBarChartCard(habit: habit, today: today)
                             } else {
-                                HabitStreakCard(habit: habit)
+                                HabitStreakCard(habit: habit, today: today)
                             }
                         }
                     }
+                    .id(habits.map { $0.id.uuidString }.joined())
                 case .weekly, .monthly:
                     VStack(spacing: 8) {
                         Image(systemName: "chart.bar.xaxis")
@@ -354,6 +445,7 @@ struct HabitValueDataPoint: Identifiable {
 /// Supports live updates for HealthKit-linked habits
 struct HabitBarChartCard: View {
     let habit: Habit
+    let today: Date
 
     /// Live HealthKit value for today (updated periodically)
     @State private var liveHealthKitValue: Double? = nil
@@ -363,18 +455,18 @@ struct HabitBarChartCard: View {
 
     private var last7Days: [Date] {
         let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        return (0..<7).compactMap { calendar.date(byAdding: .day, value: -$0, to: today) }.reversed()
+        let todayStart = calendar.startOfDay(for: today)
+        return (0..<7).compactMap { calendar.date(byAdding: .day, value: -$0, to: todayStart) }.reversed()
     }
 
     private var dataPoints: [HabitValueDataPoint] {
         let formatter = DateFormatter()
         formatter.dateFormat = "EEE"
         let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
+        let todayStart = calendar.startOfDay(for: today)
 
         return last7Days.map { date in
-            let isToday = calendar.isDate(date, inSameDayAs: today)
+            let isToday = calendar.isDate(date, inSameDayAs: todayStart)
 
             // For today, use live HealthKit value if available
             let value: Double?
@@ -418,11 +510,6 @@ struct HabitBarChartCard: View {
         return nil
     }
 
-    /// Check if there's any data to display
-    private var hasData: Bool {
-        dataPoints.contains { $0.value != nil }
-    }
-
     /// Whether this is a live-updating habit
     private var isLiveTracking: Bool {
         habit.isHealthKitLinked
@@ -451,76 +538,65 @@ struct HabitBarChartCard: View {
                 }
             }
 
-            if hasData || isLiveTracking {
-                // Bar chart
-                Chart {
-                    ForEach(dataPoints) { dataPoint in
-                        BarMark(
-                            x: .value("Day", dataPoint.dayAbbr),
-                            y: .value("Value", dataPoint.value ?? 0)
-                        )
-                        .foregroundStyle(barColor(for: dataPoint.value, isToday: dataPoint.isToday))
-                        .cornerRadius(4)
-                    }
-
-                    // Target line
-                    if let target = targetValue {
-                        RuleMark(y: .value("Target", target))
-                            .foregroundStyle(.orange.opacity(0.8))
-                            .lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 3]))
-                            .annotation(position: .top, alignment: .trailing) {
-                                Text("Goal")
-                                    .font(.custom("PatrickHand-Regular", size: 10))
-                                    .foregroundStyle(.orange)
-                            }
-                    }
+                // Bar chart (always show, even if empty)
+            Chart {
+                ForEach(dataPoints) { dataPoint in
+                    BarMark(
+                        x: .value("Day", dataPoint.dayAbbr),
+                        y: .value("Value", dataPoint.value ?? 0)
+                    )
+                    .foregroundStyle(barColor(for: dataPoint.value, isToday: dataPoint.isToday))
+                    .cornerRadius(4)
                 }
-                .chartYAxis {
-                    AxisMarks { _ in
-                        AxisValueLabel()
-                            .font(.custom("PatrickHand-Regular", size: 10))
-                        AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [3]))
-                            .foregroundStyle(JournalTheme.Colors.lineLight)
-                    }
-                }
-                .chartXAxis {
-                    AxisMarks { _ in
-                        AxisValueLabel()
-                            .font(.custom("PatrickHand-Regular", size: 10))
-                    }
-                }
-                .frame(height: 120)
 
-                // Unit label with current value for live tracking
-                HStack {
-                    if let unit = unit {
-                        Text("in \(unit)")
-                            .font(.custom("PatrickHand-Regular", size: 12))
-                            .foregroundStyle(JournalTheme.Colors.completedGray)
-                    }
-
-                    Spacer()
-
-                    // Show current progress for live tracking
-                    if isLiveTracking, let current = liveHealthKitValue, let target = targetValue {
-                        let progress = min(current / target, 1.0)
-                        Text("\(Int(progress * 100))% of goal")
-                            .font(.custom("PatrickHand-Regular", size: 12))
-                            .foregroundStyle(progress >= 1.0 ? JournalTheme.Colors.goodDayGreenDark : JournalTheme.Colors.completedGray)
-                    }
+                // Target line
+                if let target = targetValue {
+                    RuleMark(y: .value("Target", target))
+                        .foregroundStyle(.orange.opacity(0.8))
+                        .lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 3]))
+                        .annotation(position: .top, alignment: .trailing) {
+                            Text("Goal")
+                                .font(.custom("PatrickHand-Regular", size: 10))
+                                .foregroundStyle(.orange)
+                        }
                 }
-            } else {
-                // No data yet message
-                VStack(spacing: 6) {
-                    Image(systemName: "chart.bar")
-                        .font(.system(size: 24))
-                        .foregroundStyle(JournalTheme.Colors.completedGray)
-                    Text("No data yet for the past 7 days")
-                        .font(JournalTheme.Fonts.habitCriteria())
+            }
+            .chartYScale(domain: 0...(targetValue ?? 100))
+            .chartYAxis {
+                AxisMarks { _ in
+                    AxisValueLabel()
+                        .font(.custom("PatrickHand-Regular", size: 10))
+                        .foregroundStyle(JournalTheme.Colors.inkBlack)
+                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [3]))
+                        .foregroundStyle(JournalTheme.Colors.lineLight)
+                }
+            }
+            .chartXAxis {
+                AxisMarks { _ in
+                    AxisValueLabel()
+                        .font(.custom("PatrickHand-Regular", size: 10))
+                        .foregroundStyle(JournalTheme.Colors.inkBlack)
+                }
+            }
+            .frame(height: 120)
+
+            // Unit label with current value for live tracking
+            HStack {
+                if let unit = unit {
+                    Text("in \(unit)")
+                        .font(.custom("PatrickHand-Regular", size: 12))
                         .foregroundStyle(JournalTheme.Colors.completedGray)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 20)
+
+                Spacer()
+
+                // Show current progress for live tracking
+                if isLiveTracking, let current = liveHealthKitValue, let target = targetValue {
+                    let progress = min(current / target, 1.0)
+                    Text("\(Int(progress * 100))% of goal")
+                        .font(.custom("PatrickHand-Regular", size: 12))
+                        .foregroundStyle(progress >= 1.0 ? JournalTheme.Colors.goodDayGreenDark : JournalTheme.Colors.completedGray)
+                }
             }
         }
         .padding()
@@ -588,11 +664,12 @@ struct HabitBarChartCard: View {
 /// 7-day streak view with flames for consecutive completions
 struct HabitStreakCard: View {
     let habit: Habit
+    let today: Date
 
     private var last7Days: [Date] {
         let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        return (0..<7).compactMap { calendar.date(byAdding: .day, value: -$0, to: today) }.reversed()
+        let todayStart = calendar.startOfDay(for: today)
+        return (0..<7).compactMap { calendar.date(byAdding: .day, value: -$0, to: todayStart) }.reversed()
     }
 
     private var dayFormatter: DateFormatter {
@@ -724,11 +801,12 @@ struct HabitStreakCard: View {
 /// Card showing days since last slip for Don't Do habits
 struct DontDoStreakCard: View {
     let habit: Habit
+    let today: Date
 
     private var last7Days: [Date] {
         let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        return (0..<7).compactMap { calendar.date(byAdding: .day, value: -$0, to: today) }.reversed()
+        let todayStart = calendar.startOfDay(for: today)
+        return (0..<7).compactMap { calendar.date(byAdding: .day, value: -$0, to: todayStart) }.reversed()
     }
 
     private var dayFormatter: DateFormatter {
@@ -741,23 +819,22 @@ struct DontDoStreakCard: View {
     /// Returns days since last slip, or days since habit creation if never slipped
     private var daysSinceLastSlip: Int {
         let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
+        let todayStart = calendar.startOfDay(for: today)
 
         // Check if slipped today
-        if habit.isCompleted(for: today) {
+        if habit.isCompleted(for: todayStart) {
             return 0
         }
 
         // Look back through history to find last slip
         var daysClean = 0
-        var checkDate = today
 
         // Limit to 365 days or habit creation date
         let habitCreationDate = calendar.startOfDay(for: habit.createdAt)
-        let maxDaysToCheck = min(365, calendar.dateComponents([.day], from: habitCreationDate, to: today).day ?? 365)
+        let maxDaysToCheck = min(365, calendar.dateComponents([.day], from: habitCreationDate, to: todayStart).day ?? 365)
 
         for dayOffset in 0..<maxDaysToCheck {
-            guard let date = calendar.date(byAdding: .day, value: -dayOffset, to: today) else { break }
+            guard let date = calendar.date(byAdding: .day, value: -dayOffset, to: todayStart) else { break }
 
             // Stop if we've gone before the habit was created
             if date < habitCreationDate {
@@ -778,14 +855,14 @@ struct DontDoStreakCard: View {
     /// Best clean streak (longest period without slipping)
     private var bestCleanStreak: Int {
         let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
+        let todayStart = calendar.startOfDay(for: today)
         let habitCreationDate = calendar.startOfDay(for: habit.createdAt)
 
         var bestStreak = 0
         var currentStreak = 0
 
         // Look through all days since habit creation
-        let totalDays = calendar.dateComponents([.day], from: habitCreationDate, to: today).day ?? 0
+        let totalDays = calendar.dateComponents([.day], from: habitCreationDate, to: todayStart).day ?? 0
 
         for dayOffset in 0...totalDays {
             guard let date = calendar.date(byAdding: .day, value: dayOffset, to: habitCreationDate) else { break }

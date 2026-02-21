@@ -339,6 +339,69 @@ final class HealthKitManager {
         }
     }
 
+    // MARK: - Historical Data Fetching
+
+    /// Fetch value for a specific date range (for persisting past day values)
+    func fetchValueForDateRange(for metric: HealthKitMetricType, start: Date, end: Date) async -> Double? {
+        guard isAvailable else { return nil }
+
+        switch metric {
+        case .steps:
+            return await fetchCumulativeSum(
+                typeIdentifier: .stepCount,
+                unit: HKUnit.count(),
+                start: start,
+                end: end
+            )
+        case .distanceWalkingRunning:
+            return await fetchCumulativeSum(
+                typeIdentifier: .distanceWalkingRunning,
+                unit: HKUnit.meterUnit(with: .kilo),
+                start: start,
+                end: end
+            )
+        case .distanceCycling:
+            return await fetchCumulativeSum(
+                typeIdentifier: .distanceCycling,
+                unit: HKUnit.meterUnit(with: .kilo),
+                start: start,
+                end: end
+            )
+        case .activeEnergyBurned:
+            return await fetchCumulativeSum(
+                typeIdentifier: .activeEnergyBurned,
+                unit: HKUnit.kilocalorie(),
+                start: start,
+                end: end
+            )
+        case .appleExerciseTime:
+            return await fetchCumulativeSum(
+                typeIdentifier: .appleExerciseTime,
+                unit: HKUnit.minute(),
+                start: start,
+                end: end
+            )
+        case .flightsClimbed:
+            return await fetchCumulativeSum(
+                typeIdentifier: .flightsClimbed,
+                unit: HKUnit.count(),
+                start: start,
+                end: end
+            )
+        case .mindfulMinutes:
+            return await fetchMindfulMinutes(start: start, end: end)
+        case .sleepHours:
+            return await fetchSleepHours(start: start, end: end)
+        case .waterIntake:
+            return await fetchCumulativeSum(
+                typeIdentifier: .dietaryWater,
+                unit: HKUnit.liter(),
+                start: start,
+                end: end
+            )
+        }
+    }
+
     // MARK: - Helpers
 
     private func healthKitTypesToRead() -> Set<HKObjectType> {

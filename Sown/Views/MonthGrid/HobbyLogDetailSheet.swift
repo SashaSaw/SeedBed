@@ -139,24 +139,28 @@ struct HobbyLogDetailSheet: View {
 
     @ViewBuilder
     private var viewModeContent: some View {
-        // Scrapbook collage for photos and notes
+        // Corkboard-style collage for photos
         if !loadedImages.isEmpty {
-            ScrapbookCollageView(
+            CorkboardCollageView(
                 images: loadedImages,
                 note: currentLog?.note
             )
             .padding(.horizontal, -16) // Extend to edges
         } else if let log = currentLog, let note = log.note, !note.isEmpty {
-            // Note only (no photos) - show as sticky note
-            VStack(alignment: .leading, spacing: 16) {
-                StickyNoteView(
+            // Note only (no photos) - show as pinned note card
+            ZStack {
+                CorkTextureView()
+                    .frame(height: 200)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .shadow(color: .black.opacity(0.3), radius: 6, x: 0, y: 3)
+
+                PinnedNoteView(
                     text: note,
                     rotation: -2,
-                    maxWidth: 280
+                    pinColor: .red
                 )
-                .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.top, 20)
             }
+            .padding(.top, 10)
         }
 
         // Empty state

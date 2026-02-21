@@ -19,6 +19,11 @@ final class SmartReminderService {
     // Notification identifier prefix for smart reminders
     private let identifierPrefix = "smart_reminder_"
 
+    // Batching configuration (matches UnifiedNotificationService)
+    private let maxHabitsPerBatch = 3
+    private let batchIntervalMinutes = 10
+    private let maxBatchesPerReminder = 10
+
     private init() {}
 
     // MARK: - Schedule All Smart Reminders
@@ -69,26 +74,29 @@ final class SmartReminderService {
 
         guard !uncompletedHabits.isEmpty || !uncompletedTasks.isEmpty else { return }
 
-        var bodyParts: [String] = []
+        // Combine habits and tasks for batching
+        let allItems = uncompletedHabits + uncompletedTasks
+        let batches = allItems.chunked(into: maxHabitsPerBatch)
+        let baseMinutes = schedule.reminder1Minutes
 
-        if !uncompletedHabits.isEmpty {
-            let habitList = uncompletedHabits.map { displayName(for: $0) }.prefix(3).joined(separator: ", ")
-            bodyParts.append("Morning habits: \(habitList)")
+        for (batchIndex, batch) in batches.enumerated() {
+            let offsetMinutes = batchIndex * batchIntervalMinutes
+            let (title, body) = formatBatchNotification(
+                batch: batch,
+                baseTitle: "Rise and shine ☀️",
+                context: "Good morning!",
+                batchIndex: batchIndex,
+                totalBatches: batches.count
+            )
+
+            await scheduleNotification(
+                index: 0,
+                batchIndex: batchIndex,
+                minutes: baseMinutes + offsetMinutes,
+                title: title,
+                body: body
+            )
         }
-
-        if !uncompletedTasks.isEmpty {
-            let taskList = uncompletedTasks.map { $0.name }.prefix(3).joined(separator: ", ")
-            bodyParts.append("Tasks: \(taskList)")
-        }
-
-        let body = "Good morning! " + bodyParts.joined(separator: ". ")
-
-        await scheduleNotification(
-            index: 0,
-            minutes: schedule.reminder1Minutes,
-            title: "Rise and shine ☀️",
-            body: body
-        )
     }
 
     /// Reminder 2: 11:00 AM — "Morning reminder: you still have X morning habits left"
@@ -100,29 +108,29 @@ final class SmartReminderService {
 
         guard !uncompletedHabits.isEmpty || !uncompletedTasks.isEmpty else { return }
 
-        let total = mustDoTotal(habits: habits, groups: groups)
-        let completed = mustDoCompleted(habits: habits, groups: groups, on: date)
+        // Combine habits and tasks for batching
+        let allItems = uncompletedHabits + uncompletedTasks
+        let batches = allItems.chunked(into: maxHabitsPerBatch)
+        let baseMinutes = schedule.reminder2Minutes
 
-        var bodyParts: [String] = []
+        for (batchIndex, batch) in batches.enumerated() {
+            let offsetMinutes = batchIndex * batchIntervalMinutes
+            let (title, body) = formatBatchNotification(
+                batch: batch,
+                baseTitle: "Morning check-in 🌤️",
+                context: "Still to do",
+                batchIndex: batchIndex,
+                totalBatches: batches.count
+            )
 
-        if !uncompletedHabits.isEmpty {
-            let habitNames = uncompletedHabits.map { displayName(for: $0) }.prefix(3).joined(separator: ", ")
-            bodyParts.append("\(uncompletedHabits.count) habit\(uncompletedHabits.count == 1 ? "" : "s"): \(habitNames)")
+            await scheduleNotification(
+                index: 1,
+                batchIndex: batchIndex,
+                minutes: baseMinutes + offsetMinutes,
+                title: title,
+                body: body
+            )
         }
-
-        if !uncompletedTasks.isEmpty {
-            let taskNames = uncompletedTasks.map { $0.name }.prefix(2).joined(separator: ", ")
-            bodyParts.append("\(uncompletedTasks.count) task\(uncompletedTasks.count == 1 ? "" : "s"): \(taskNames)")
-        }
-
-        let body = "Still to do: " + bodyParts.joined(separator: " · ") + ". Progress: \(completed)/\(total) must-dos."
-
-        await scheduleNotification(
-            index: 1,
-            minutes: schedule.reminder2Minutes,
-            title: "Morning check-in 🌤️",
-            body: body
-        )
     }
 
     /// Reminder 3: 5:00 PM — "Afternoon check-in: get your daytime habits done"
@@ -133,29 +141,29 @@ final class SmartReminderService {
 
         guard !uncompletedHabits.isEmpty || !uncompletedTasks.isEmpty else { return }
 
-        let total = mustDoTotal(habits: habits, groups: groups)
-        let completed = mustDoCompleted(habits: habits, groups: groups, on: date)
+        // Combine habits and tasks for batching
+        let allItems = uncompletedHabits + uncompletedTasks
+        let batches = allItems.chunked(into: maxHabitsPerBatch)
+        let baseMinutes = schedule.reminder3Minutes
 
-        var bodyParts: [String] = []
+        for (batchIndex, batch) in batches.enumerated() {
+            let offsetMinutes = batchIndex * batchIntervalMinutes
+            let (title, body) = formatBatchNotification(
+                batch: batch,
+                baseTitle: "Afternoon check-in 📋",
+                context: "Time to finish up",
+                batchIndex: batchIndex,
+                totalBatches: batches.count
+            )
 
-        if !uncompletedHabits.isEmpty {
-            let habitNames = uncompletedHabits.map { displayName(for: $0) }.prefix(3).joined(separator: ", ")
-            bodyParts.append("Habits: \(habitNames)")
+            await scheduleNotification(
+                index: 2,
+                batchIndex: batchIndex,
+                minutes: baseMinutes + offsetMinutes,
+                title: title,
+                body: body
+            )
         }
-
-        if !uncompletedTasks.isEmpty {
-            let taskNames = uncompletedTasks.map { $0.name }.prefix(2).joined(separator: ", ")
-            bodyParts.append("Tasks: \(taskNames)")
-        }
-
-        let body = bodyParts.joined(separator: ". ") + ". Progress: \(completed)/\(total) must-dos."
-
-        await scheduleNotification(
-            index: 2,
-            minutes: schedule.reminder3Minutes,
-            title: "Afternoon check-in 📋",
-            body: body
-        )
     }
 
     /// Reminder 4: 2hrs before bed — "Evening wind-down: finish your hobbies"
@@ -164,40 +172,42 @@ final class SmartReminderService {
         let uncompleted = eveningHabits.filter { !$0.isCompleted(for: date) }
         let uncompletedTasks = todayTasks(from: habits, on: date)
 
-        // Also include uncompleted nice-to-do hobbies from any time slot
-        let allUncompleted = habits.filter { habit in
+        // Also include uncompleted nice-to-do hobbies scheduled for Evening
+        let eveningNiceToDos = habits.filter { habit in
             habit.isActive && !habit.isTask && habit.tier == .niceToDo &&
-            !habit.isCompleted(for: date) && habit.groupId == nil
+            !habit.isCompleted(for: date) && habit.groupId == nil &&
+            (habit.scheduleTimes.isEmpty || habit.scheduleTimes.contains("Evening"))
         }
 
-        let combined = Array(Set(uncompleted.map(\.id)).union(allUncompleted.map(\.id)))
+        let combined = Array(Set(uncompleted.map(\.id)).union(eveningNiceToDos.map(\.id)))
             .compactMap { id in habits.first(where: { $0.id == id }) }
 
         guard !combined.isEmpty || !uncompletedTasks.isEmpty else { return }
 
-        let total = mustDoTotal(habits: habits, groups: groups)
-        let completed = mustDoCompleted(habits: habits, groups: groups, on: date)
+        // Combine habits and tasks for batching
+        let allItems = combined + uncompletedTasks
+        let batches = allItems.chunked(into: maxHabitsPerBatch)
+        let baseMinutes = schedule.reminder4Minutes
 
-        var bodyParts: [String] = []
+        for (batchIndex, batch) in batches.enumerated() {
+            let offsetMinutes = batchIndex * batchIntervalMinutes
+            let (title, body) = formatBatchNotification(
+                batch: batch,
+                baseTitle: "Evening wind-down 🌙",
+                context: "Wind down time",
+                batchIndex: batchIndex,
+                totalBatches: batches.count,
+                usePrompts: true
+            )
 
-        if !combined.isEmpty {
-            let habitNames = combined.map { displayNameWithPrompt(for: $0) }.prefix(3).joined(separator: ", ")
-            bodyParts.append(habitNames)
+            await scheduleNotification(
+                index: 3,
+                batchIndex: batchIndex,
+                minutes: baseMinutes + offsetMinutes,
+                title: title,
+                body: body
+            )
         }
-
-        if !uncompletedTasks.isEmpty {
-            let taskNames = uncompletedTasks.map { $0.name }.prefix(2).joined(separator: ", ")
-            bodyParts.append("Tasks: \(taskNames)")
-        }
-
-        let body = "Wind down and finish up: " + bodyParts.joined(separator: ". ") + ". Must-dos: \(completed)/\(total)."
-
-        await scheduleNotification(
-            index: 3,
-            minutes: schedule.reminder4Minutes,
-            title: "Evening wind-down 🌙",
-            body: body
-        )
     }
 
     /// Reminder 5: 1hr before bed — "Last call: finish your before-bed habits"
@@ -207,22 +217,33 @@ final class SmartReminderService {
 
         guard !uncompleted.isEmpty else { return }
 
-        let habitNames = uncompleted.map { displayName(for: $0) }.prefix(4).joined(separator: ", ")
+        let batches = uncompleted.chunked(into: maxHabitsPerBatch)
+        let baseMinutes = schedule.reminder5Minutes
 
-        let body = "Last call before bed: \(habitNames). Finish up so you can wind down."
+        for (batchIndex, batch) in batches.enumerated() {
+            let offsetMinutes = batchIndex * batchIntervalMinutes
+            let (title, body) = formatBatchNotification(
+                batch: batch,
+                baseTitle: "Almost bedtime 😴",
+                context: "Last call",
+                batchIndex: batchIndex,
+                totalBatches: batches.count
+            )
 
-        await scheduleNotification(
-            index: 4,
-            minutes: schedule.reminder5Minutes,
-            title: "Almost bedtime 😴",
-            body: body
-        )
+            await scheduleNotification(
+                index: 4,
+                batchIndex: batchIndex,
+                minutes: baseMinutes + offsetMinutes,
+                title: title,
+                body: body
+            )
+        }
     }
 
     // MARK: - Notification Scheduling
 
-    private func scheduleNotification(index: Int, minutes: Int, title: String, body: String) async {
-        let identifier = "\(identifierPrefix)\(index)"
+    private func scheduleNotification(index: Int, batchIndex: Int, minutes: Int, title: String, body: String) async {
+        let identifier = "\(identifierPrefix)\(index)_batch_\(batchIndex)"
 
         let content = UNMutableNotificationContent()
         content.title = title
@@ -240,14 +261,14 @@ final class SmartReminderService {
             // Time is still ahead today — use a time interval for reliable same-day delivery
             let secondsUntil = Double((minutes - currentMinutes) * 60)
             trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(secondsUntil, 5), repeats: false)
-            print("[SmartReminder] Scheduling reminder \(index) in \(Int(secondsUntil/60)) minutes (today)")
+            print("[SmartReminder] Scheduling reminder \(index) batch \(batchIndex) in \(Int(secondsUntil/60)) minutes (today)")
         } else {
             // Time has passed today — schedule as daily repeating for tomorrow onwards
             var dateComponents = DateComponents()
             dateComponents.hour = minutes / 60
             dateComponents.minute = minutes % 60
             trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
-            print("[SmartReminder] Scheduling reminder \(index) as daily repeating at \(minutes/60):\(String(format: "%02d", minutes%60))")
+            print("[SmartReminder] Scheduling reminder \(index) batch \(batchIndex) as daily repeating at \(minutes/60):\(String(format: "%02d", minutes%60))")
         }
 
         let request = UNNotificationRequest(
@@ -258,17 +279,24 @@ final class SmartReminderService {
 
         do {
             try await notificationCenter.add(request)
-            print("[SmartReminder] ✅ Reminder \(index) scheduled successfully: \(title)")
+            print("[SmartReminder] ✅ Reminder \(index) batch \(batchIndex) scheduled: \(title)")
         } catch {
-            print("[SmartReminder] ❌ Failed to schedule reminder \(index): \(error)")
+            print("[SmartReminder] ❌ Failed to schedule reminder \(index) batch \(batchIndex): \(error)")
         }
     }
 
     // MARK: - Cancellation
 
-    /// Cancel all 5 smart reminders
+    /// Cancel all smart reminders (5 reminders × up to maxBatchesPerReminder batches each)
     func cancelAllSmartReminders() async {
-        let identifiers = (0..<5).map { "\(identifierPrefix)\($0)" }
+        var identifiers: [String] = []
+        for reminderIndex in 0..<5 {
+            for batchIndex in 0..<maxBatchesPerReminder {
+                identifiers.append("\(identifierPrefix)\(reminderIndex)_batch_\(batchIndex)")
+            }
+            // Also cancel legacy non-batched identifiers for backwards compatibility
+            identifiers.append("\(identifierPrefix)\(reminderIndex)")
+        }
         notificationCenter.removePendingNotificationRequests(withIdentifiers: identifiers)
     }
 
@@ -343,5 +371,54 @@ final class SmartReminderService {
         let completedStandalone = standalone.filter { $0.isCompleted(for: date) }.count
         let completedGroups = mustDoGroups.filter { $0.isSatisfied(habits: habits, for: date) }.count
         return completedStandalone + completedGroups
+    }
+
+    // MARK: - Batch Formatting
+
+    /// Formats a batch of habits into an actionable notification
+    /// - Parameters:
+    ///   - batch: The habits in this batch
+    ///   - baseTitle: The emoji title for this reminder type
+    ///   - context: Contextual prefix for the body
+    ///   - batchIndex: Which batch this is (0-indexed)
+    ///   - totalBatches: Total number of batches
+    ///   - usePrompts: Whether to use habit prompts instead of names (for evening reminder)
+    /// - Returns: Tuple of (title, body) for the notification
+    private func formatBatchNotification(
+        batch: [Habit],
+        baseTitle: String,
+        context: String,
+        batchIndex: Int,
+        totalBatches: Int,
+        usePrompts: Bool = false
+    ) -> (title: String, body: String) {
+        let title: String
+        let body: String
+
+        if batch.count == 1 {
+            // Single habit: feature it prominently
+            let habit = batch[0]
+            let name = usePrompts ? displayNameWithPrompt(for: habit) : displayName(for: habit)
+            title = "Time for \(habit.name)"
+            if !habit.habitPrompt.isEmpty {
+                body = habit.habitPrompt
+            } else {
+                body = "\(context) — \(name)"
+            }
+        } else {
+            // Multiple habits: list them
+            let names = batch.map { usePrompts ? displayNameWithPrompt(for: $0) : displayName(for: $0) }
+            let habitList = names.joined(separator: ", ")
+
+            if totalBatches > 1 {
+                title = "\(baseTitle) (\(batchIndex + 1)/\(totalBatches))"
+            } else {
+                title = baseTitle
+            }
+
+            body = "\(habitList) — \(batch.count) habit\(batch.count == 1 ? "" : "s") to go!"
+        }
+
+        return (title, body)
     }
 }

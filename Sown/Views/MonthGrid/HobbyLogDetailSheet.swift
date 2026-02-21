@@ -345,7 +345,7 @@ struct GroupHobbyLogSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 24) {
                     // Header
                     VStack(alignment: .leading, spacing: 8) {
                         Text(group.name)
@@ -356,9 +356,8 @@ struct GroupHobbyLogSheet: View {
                             .font(JournalTheme.Fonts.habitCriteria())
                             .foregroundStyle(JournalTheme.Colors.completedGray)
                     }
-                    .padding(.bottom, 8)
 
-                    // Sub-habit logs
+                    // Sub-habit logs as corkboard cards
                     ForEach(habits) { habit in
                         GroupSubHabitLogView(habit: habit, date: date)
                     }
@@ -395,7 +394,7 @@ struct GroupHobbyLogSheet: View {
     }
 }
 
-/// A sub-habit's hobby log within a group sheet
+/// A sub-habit's hobby log within a group sheet - corkboard style
 struct GroupSubHabitLogView: View {
     let habit: Habit
     let date: Date
@@ -404,48 +403,35 @@ struct GroupSubHabitLogView: View {
     @State private var currentLog: DailyLog? = nil
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Sub-habit name
+        VStack(alignment: .leading, spacing: 8) {
+            // Sub-habit name label
             Text(habit.name)
-                .font(.custom("PatrickHand-Regular", size: 18))
+                .font(.custom("PatrickHand-Regular", size: 20))
                 .foregroundStyle(JournalTheme.Colors.inkBlue)
+                .padding(.leading, 4)
 
-            // Photos
+            // Corkboard with photos and note
             if !loadedImages.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(Array(loadedImages.enumerated()), id: \.offset) { _, image in
-                            Image(uiImage: image)
-                                .resizable()
-                                .scaledToFill()
-                                .frame(width: 150, height: 150)
-                                .clipShape(RoundedRectangle(cornerRadius: 10))
-                                .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
-                        }
-                    }
+                CorkboardCollageView(
+                    images: loadedImages,
+                    note: currentLog?.note
+                )
+            } else if let log = currentLog, let note = log.note, !note.isEmpty {
+                // Note only - show as pinned note on small corkboard
+                ZStack {
+                    CorkTextureView()
+                        .frame(height: 180)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .shadow(color: .black.opacity(0.3), radius: 6, x: 0, y: 3)
+
+                    PinnedNoteView(
+                        text: note,
+                        rotation: -2,
+                        pinColor: .red
+                    )
                 }
             }
-
-            // Note
-            if let log = currentLog, let note = log.note, !note.isEmpty {
-                Text(note)
-                    .font(JournalTheme.Fonts.habitName())
-                    .foregroundStyle(JournalTheme.Colors.inkBlack)
-                    .padding(12)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(Color.white.opacity(0.5))
-                    )
-            }
         }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.white.opacity(0.7))
-                .shadow(color: .black.opacity(0.05), radius: 5, y: 2)
-        )
         .onAppear {
             loadData()
         }

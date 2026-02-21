@@ -211,18 +211,6 @@ struct CorkboardCollageView: View {
                 let availableWidth = geometry.size.width
 
                 ZStack {
-                    // Dim overlay when expanded
-                    if expandedIndex != nil {
-                        Color.black.opacity(0.5)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                            .onTapGesture {
-                                withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
-                                    expandedIndex = nil
-                                }
-                            }
-                            .zIndex(10)
-                    }
-
                     // Photo layout
                     photoLayout(availableWidth: availableWidth)
 

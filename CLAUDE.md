@@ -225,3 +225,21 @@ Add to `Info.plist`:
 ```
 
 Or in Xcode: Target → Signing & Capabilities → + Background Modes → Check "Remote notifications"
+
+---
+
+## Future Features
+
+### Auto-Generated Habit Prompts
+
+**Status:** Planned
+
+**Idea:** Use a small LLM to auto-generate motivational habit prompts so users don't have to motivate themselves. Currently, users manually enter habit prompts like "Put on your trainers and step outside" for their Run habit.
+
+**Potential approaches:**
+- On-device models (Core ML, Apple Intelligence)
+- API-based generation (OpenAI, Anthropic)
+- Pre-generated prompt templates based on habit categories
+
+**Why it matters:**
+The habit prompt is shown in notifications and on the habit detail page. A well-crafted prompt that focuses on the first tiny step makes habits more actionable. Most users won't write these themselves.

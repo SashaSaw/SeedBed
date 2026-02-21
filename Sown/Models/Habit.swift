@@ -81,6 +81,10 @@ final class Habit {
     var weeklyNotificationDays: [Int] = []        // Weekday indices (1=Sun, 2=Mon, ..., 7=Sat)
     var weeklyNotificationTime: Int = 540         // Default 9:00 AM
 
+    // Task deadline (for one-off tasks with time-sensitive reminders)
+    // Stored as minutes from midnight (e.g., 540 = 9:00 AM)
+    var taskDeadlineMinutes: Int? = nil
+
     // Relationship to daily logs
     // Note: CloudKit requires all relationships to be optional
     @Relationship(deleteRule: .cascade, inverse: \DailyLog.habit)

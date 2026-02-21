@@ -9,6 +9,8 @@ struct AddTodayTaskView: View {
     @State private var name = ""
     @State private var showConfirmation = false
     @State private var addedTaskName = ""
+    @State private var hasDeadline = false
+    @State private var deadlineTime = Date()
 
     @FocusState private var nameFieldFocused: Bool
 
@@ -49,6 +51,7 @@ struct AddTodayTaskView: View {
                     }
 
                     if hasName {
+                        deadlineSection
                         submitButton
                     }
 
@@ -145,6 +148,97 @@ struct AddTodayTaskView: View {
         }
     }
 
+    // MARK: - Deadline Section
+
+    private var deadlineSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Toggle for deadline
+            HStack {
+                Image(systemName: "clock.fill")
+                    .font(.custom("PatrickHand-Regular", size: 14))
+                    .foregroundStyle(JournalTheme.Colors.amber)
+                    .frame(width: 24)
+
+                Text("Set deadline")
+                    .font(JournalTheme.Fonts.habitName())
+                    .foregroundStyle(JournalTheme.Colors.inkBlack)
+
+                Spacer()
+
+                Toggle("", isOn: $hasDeadline)
+                    .labelsHidden()
+                    .tint(JournalTheme.Colors.amber)
+                    .onChange(of: hasDeadline) { _, newValue in
+                        Feedback.selection()
+                        if newValue {
+                            // Default to 2 hours from now
+                            deadlineTime = Date().addingTimeInterval(2 * 60 * 60)
+                        }
+                    }
+            }
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.white.opacity(0.7))
+                    .shadow(color: .black.opacity(0.05), radius: 5, y: 2)
+            )
+
+            // Time picker (shown when deadline is enabled)
+            if hasDeadline {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Due by")
+                        .font(JournalTheme.Fonts.sectionHeader())
+                        .foregroundStyle(JournalTheme.Colors.completedGray)
+                        .tracking(1.5)
+
+                    DatePicker(
+                        "",
+                        selection: $deadlineTime,
+                        in: Date()...,
+                        displayedComponents: .hourAndMinute
+                    )
+                    .datePickerStyle(.wheel)
+                    .labelsHidden()
+                    .frame(maxWidth: .infinity)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.white.opacity(0.7))
+                    )
+
+                    // Show time until deadline
+                    let minutesUntil = Int(deadlineTime.timeIntervalSince(Date()) / 60)
+                    if minutesUntil > 0 {
+                        HStack {
+                            Image(systemName: "bell.fill")
+                                .font(.custom("PatrickHand-Regular", size: 12))
+                                .foregroundStyle(JournalTheme.Colors.amber)
+
+                            if minutesUntil >= 60 {
+                                let hours = minutesUntil / 60
+                                let mins = minutesUntil % 60
+                                if mins > 0 {
+                                    Text("Reminders will be sent over the next \(hours)h \(mins)m")
+                                        .font(JournalTheme.Fonts.habitCriteria())
+                                        .foregroundStyle(JournalTheme.Colors.completedGray)
+                                } else {
+                                    Text("Reminders will be sent over the next \(hours) hour\(hours == 1 ? "" : "s")")
+                                        .font(JournalTheme.Fonts.habitCriteria())
+                                        .foregroundStyle(JournalTheme.Colors.completedGray)
+                                }
+                            } else {
+                                Text("Reminder will be sent shortly")
+                                    .font(JournalTheme.Fonts.habitCriteria())
+                                    .foregroundStyle(JournalTheme.Colors.completedGray)
+                            }
+                        }
+                        .padding(.top, 4)
+                    }
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+    }
+
     // MARK: - Submit
 
     private var submitButton: some View {
@@ -176,10 +270,27 @@ struct AddTodayTaskView: View {
         }
         addedTaskName = displayName.isEmpty ? trimmedName : displayName
 
-        let _ = store.addHabit(
+        // Calculate deadline minutes from midnight if set
+        var deadlineMinutes: Int? = nil
+        if hasDeadline {
+            let calendar = Calendar.current
+            let hour = calendar.component(.hour, from: deadlineTime)
+            let minute = calendar.component(.minute, from: deadlineTime)
+            deadlineMinutes = hour * 60 + minute
+        }
+
+        let task = store.addHabit(
             name: trimmedName,
-            frequencyType: .once
+            frequencyType: .once,
+            taskDeadlineMinutes: deadlineMinutes
         )
+
+        // Schedule deadline notifications if deadline is set
+        if deadlineMinutes != nil {
+            Task {
+                await UnifiedNotificationService.shared.scheduleTaskDeadlineNotifications(for: task)
+            }
+        }
 
         withAnimation(.easeInOut(duration: 0.3)) {
             showConfirmation = true

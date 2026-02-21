@@ -106,6 +106,28 @@ struct HabitDetailView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 8)
 
+                // MARK: - Habit Prompt (prominent display)
+                if !habit.habitPrompt.isEmpty {
+                    VStack(spacing: 8) {
+                        Text("\"\(habit.habitPrompt)\"")
+                            .font(.custom("PatrickHand-Regular", size: 22))
+                            .foregroundStyle(JournalTheme.Colors.inkBlack)
+                            .multilineTextAlignment(.center)
+                            .italic()
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(JournalTheme.Colors.amber.opacity(0.15))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .strokeBorder(JournalTheme.Colors.amber.opacity(0.3), lineWidth: 1)
+                            )
+                    )
+                }
+
                 // MARK: - Stats Cards
                 HabitStatsSection(habit: habit, store: store)
 

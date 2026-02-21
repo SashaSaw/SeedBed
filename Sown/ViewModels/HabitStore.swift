@@ -291,7 +291,8 @@ final class HabitStore {
         healthKitMetricType: String? = nil,
         healthKitTarget: Double? = nil,
         screenTimeAppTokenData: Data? = nil,
-        screenTimeTarget: Int? = nil
+        screenTimeTarget: Int? = nil,
+        taskDeadlineMinutes: Int? = nil
     ) -> Habit {
         let maxSortOrder = habits.map { $0.sortOrder }.max() ?? 0
 
@@ -324,6 +325,7 @@ final class HabitStore {
         habit.healthKitTarget = healthKitTarget
         habit.screenTimeAppTokenData = screenTimeAppTokenData
         habit.screenTimeTarget = screenTimeTarget
+        habit.taskDeadlineMinutes = taskDeadlineMinutes
 
         modelContext.insert(habit)
         saveContext()
@@ -332,7 +334,15 @@ final class HabitStore {
         // Schedule notifications for the new habit
         if notificationsEnabled {
             Task {
-                await NotificationService.shared.scheduleNotifications(for: habit)
+                // Use new unified service for individual habit notifications
+                await UnifiedNotificationService.shared.scheduleAllHabitNotifications(for: self.habits)
+            }
+        }
+
+        // Schedule task deadline notifications if applicable
+        if frequencyType == .once && taskDeadlineMinutes != nil {
+            Task {
+                await UnifiedNotificationService.shared.scheduleTaskDeadlineNotifications(for: habit)
             }
         }
 
@@ -350,12 +360,23 @@ final class HabitStore {
     func updateHabit(_ habit: Habit) {
         saveContext()
         fetchData()
+
+        // Reschedule notifications if needed
+        if habit.notificationsEnabled {
+            Task {
+                await UnifiedNotificationService.shared.scheduleAllHabitNotifications(for: self.habits)
+            }
+        }
     }
 
     func deleteHabit(_ habit: Habit) {
         // Cancel any scheduled notifications for this habit
         Task {
             await NotificationService.shared.cancelNotifications(for: habit)
+            await UnifiedNotificationService.shared.cancelNotifications(for: habit)
+            if habit.isTask {
+                await UnifiedNotificationService.shared.cancelTaskDeadlineNotifications(for: habit)
+            }
         }
 
         // Remove from any groups
@@ -488,6 +509,21 @@ final class HabitStore {
         completionChangeCounter += 1
         saveContext()
         refreshSmartReminders()
+
+        // Update notifications based on completion state
+        Task {
+            if habit.isTask && habit.taskDeadlineMinutes != nil {
+                // For tasks with deadlines: cancel if done, reschedule if undone
+                if newCompletedState {
+                    await UnifiedNotificationService.shared.cancelTaskDeadlineNotifications(for: habit)
+                } else {
+                    await UnifiedNotificationService.shared.scheduleTaskDeadlineNotifications(for: habit)
+                }
+            } else if habit.notificationsEnabled {
+                // For habits: reschedule all (completed habits are filtered out)
+                await UnifiedNotificationService.shared.scheduleAllHabitNotifications(for: self.habits)
+            }
+        }
     }
 
     func setCompletion(for habit: Habit, completed: Bool, value: Double? = nil, on date: Date = Date()) {
@@ -505,6 +541,21 @@ final class HabitStore {
         completionChangeCounter += 1
         saveContext()
         refreshSmartReminders()
+
+        // Update notifications based on completion state
+        Task {
+            if habit.isTask && habit.taskDeadlineMinutes != nil {
+                // For tasks with deadlines: cancel if done, reschedule if undone
+                if completed {
+                    await UnifiedNotificationService.shared.cancelTaskDeadlineNotifications(for: habit)
+                } else {
+                    await UnifiedNotificationService.shared.scheduleTaskDeadlineNotifications(for: habit)
+                }
+            } else if habit.notificationsEnabled {
+                // For habits: reschedule all (completed habits are filtered out)
+                await UnifiedNotificationService.shared.scheduleAllHabitNotifications(for: self.habits)
+            }
+        }
     }
 
     /// Reschedules smart reminders based on current habit state
@@ -1096,6 +1147,13 @@ final class HabitStore {
 
         // Refresh smart reminders since completion state changed
         refreshSmartReminders()
+
+        // Cancel remaining notifications for this habit today
+        if habit.notificationsEnabled {
+            Task {
+                await UnifiedNotificationService.shared.scheduleAllHabitNotifications(for: self.habits)
+            }
+        }
     }
 
     /// Start monitoring Screen Time for all linked habits (positive and negative)
@@ -1176,5 +1234,12 @@ final class HabitStore {
 
         // Refresh smart reminders since completion state changed
         refreshSmartReminders()
+
+        // Cancel remaining notifications for this habit today
+        if habit.notificationsEnabled {
+            Task {
+                await UnifiedNotificationService.shared.scheduleAllHabitNotifications(for: self.habits)
+            }
+        }
     }
 }

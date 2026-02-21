@@ -79,10 +79,22 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
-        if response.notification.request.content.categoryIdentifier == "OPEN_SOWN" {
+        let userInfo = response.notification.request.content.userInfo
+        let category = response.notification.request.content.categoryIdentifier
+
+        if category == "OPEN_SOWN" {
             // Write the flag so ContentView shows InterceptView
             let defaults = UserDefaults(suiteName: "group.com.incept5.SeedBed")
             defaults?.set(Date().timeIntervalSince1970, forKey: "interceptRequested")
+        } else if category == "HABIT_REMINDER" || category == "TASK_REMINDER" {
+            // Deep link to habit/task
+            if let habitId = userInfo["habitId"] as? String,
+               let type = userInfo["type"] as? String {
+                let defaults = UserDefaults.standard
+                defaults.set(habitId, forKey: "pendingNavigationHabitId")
+                defaults.set(type, forKey: "pendingNavigationType")
+                defaults.set(Date().timeIntervalSince1970, forKey: "pendingNavigationTime")
+            }
         }
         completionHandler()
     }

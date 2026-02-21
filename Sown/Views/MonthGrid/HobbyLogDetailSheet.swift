@@ -139,44 +139,23 @@ struct HobbyLogDetailSheet: View {
 
     @ViewBuilder
     private var viewModeContent: some View {
-        // Photo section — full-width snapping pager
+        // Scrapbook collage for photos and notes
         if !loadedImages.isEmpty {
-            VStack(spacing: 8) {
-                TabView {
-                    ForEach(Array(loadedImages.enumerated()), id: \.offset) { _, image in
-                        Image(uiImage: image)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 300)
-                            .clipped()
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                            .shadow(color: .black.opacity(0.1), radius: 5, y: 2)
-                            .padding(.horizontal, 4)
-                    }
-                }
-                .tabViewStyle(.page(indexDisplayMode: loadedImages.count > 1 ? .always : .never))
-                .frame(height: 320)
-            }
-        }
-
-        // Note section
-        if let log = currentLog, let note = log.note, !note.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Notes")
-                    .font(JournalTheme.Fonts.sectionHeader())
-                    .foregroundStyle(JournalTheme.Colors.inkBlue)
-
-                Text(note)
-                    .font(JournalTheme.Fonts.habitName())
-                    .foregroundStyle(JournalTheme.Colors.inkBlack)
-                    .padding()
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.white.opacity(0.7))
-                            .shadow(color: .black.opacity(0.05), radius: 5, y: 2)
-                    )
+            ScrapbookCollageView(
+                images: loadedImages,
+                note: currentLog?.note
+            )
+            .padding(.horizontal, -16) // Extend to edges
+        } else if let log = currentLog, let note = log.note, !note.isEmpty {
+            // Note only (no photos) - show as sticky note
+            VStack(alignment: .leading, spacing: 16) {
+                StickyNoteView(
+                    text: note,
+                    rotation: -2,
+                    maxWidth: 280
+                )
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.top, 20)
             }
         }
 

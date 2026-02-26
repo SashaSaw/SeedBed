@@ -5,6 +5,7 @@ struct SuggestionPillGrid: View {
     let suggestions: [HabitSuggestion]
     @Binding var selectedNames: Set<String>
     @Binding var customPills: [String]
+    @Binding var customPillEmojis: [String: String]
 
     var body: some View {
         FlowLayout(spacing: 10) {
@@ -31,7 +32,7 @@ struct SuggestionPillGrid: View {
             // User-added custom pills (always selected, tap to remove)
             ForEach(customPills, id: \.self) { name in
                 SuggestionPill(
-                    emoji: "\u{2728}",
+                    emoji: customPillEmojis[name] ?? "\u{2728}",
                     name: name,
                     isSelected: true,
                     isCustom: true,
@@ -39,6 +40,7 @@ struct SuggestionPillGrid: View {
                         withAnimation(.easeInOut(duration: 0.2)) {
                             customPills.removeAll { $0 == name }
                             selectedNames.remove(name)
+                            customPillEmojis.removeValue(forKey: name)
                         }
                         Feedback.selection()
                     }
@@ -54,18 +56,21 @@ struct AddCustomPillField: View {
     let placeholder: String
     @Binding var selectedNames: Set<String>
     @Binding var customPills: [String]
+    @Binding var customPillEmojis: [String: String]
 
     @State private var text: String = ""
     @FocusState private var isFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Something else?")
+            Text("Something else? Add an emoji too!")
                 .font(.custom("PatrickHand-Regular", size: 13))
                 .foregroundStyle(JournalTheme.Colors.completedGray)
 
             HStack(spacing: 10) {
-                TextField(placeholder, text: $text)
+                TextField("", text: $text, prompt: Text(placeholder)
+                    .font(.custom("PatrickHand-Regular", size: 15))
+                    .foregroundStyle(JournalTheme.Colors.completedGray))
                     .font(.custom("PatrickHand-Regular", size: 15))
                     .foregroundStyle(JournalTheme.Colors.inkBlack)
                     .focused($isFocused)
@@ -97,7 +102,13 @@ struct AddCustomPillField: View {
 
     private func addPill() {
         guard !trimmedText.isEmpty else { return }
-        let name = trimmedText
+
+        let (emoji, name) = parseLeadingEmoji(from: trimmedText)
+
+        guard !name.isEmpty else {
+            text = ""
+            return
+        }
 
         // Don't add duplicates
         guard !selectedNames.contains(name) && !customPills.contains(name) else {
@@ -106,11 +117,36 @@ struct AddCustomPillField: View {
         }
 
         withAnimation(.easeInOut(duration: 0.2)) {
+            if let emoji {
+                customPillEmojis[name] = emoji
+            }
             customPills.append(name)
             selectedNames.insert(name)
         }
         text = ""
         Feedback.selection()
+    }
+
+    /// Extracts a leading emoji from the input, returning (emoji, remainingName).
+    /// e.g. "🧘 Yoga" → ("🧘", "Yoga"), "Stretch" → (nil, "Stretch")
+    private func parseLeadingEmoji(from input: String) -> (String?, String) {
+        let trimmed = input.trimmingCharacters(in: .whitespaces)
+        guard let firstChar = trimmed.first else { return (nil, trimmed) }
+
+        let scalars = firstChar.unicodeScalars
+        guard let firstScalar = scalars.first else { return (nil, trimmed) }
+
+        // Multi-scalar characters (ZWJ sequences, skin tones) are always emojis.
+        // Single-scalar emojis must pass the isEmoji check and not be ASCII (digits, #, *).
+        let isEmoji = scalars.count > 1
+            ? firstScalar.properties.isEmoji
+            : firstScalar.properties.isEmoji && firstScalar.value > 0xFF
+
+        if isEmoji {
+            let remaining = String(trimmed.dropFirst()).trimmingCharacters(in: .whitespaces)
+            return remaining.isEmpty ? (nil, String(firstChar)) : (String(firstChar), remaining)
+        }
+        return (nil, trimmed)
     }
 }
 

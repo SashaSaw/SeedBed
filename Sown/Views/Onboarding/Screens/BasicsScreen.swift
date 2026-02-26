@@ -1,37 +1,75 @@
 import SwiftUI
 
-/// Screen 1: Physiological needs (Maslow Level 1)
+/// Screen 1: Must-do habits (basics + responsibilities merged)
 struct BasicsScreen: View {
     @Bindable var data: OnboardingData
     let onContinue: () -> Void
 
     @State private var appeared = false
 
+    private var hasSelections: Bool {
+        !data.selectedBasics.isEmpty || !data.selectedResponsibilities.isEmpty
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
                 // Prompt
-                OnboardingPromptView(
-                    question: "What do you need every day to feel okay?",
-                    subtitle: "The non-negotiables. The stuff that keeps you running."
-                )
+                VStack(alignment: .leading, spacing: 10) {
+                    (Text("What should you be doing ")
+                        .font(.custom("PatrickHand-Regular", size: 24))
+                    + Text("every day")
+                        .font(.custom("PatrickHand-Regular", size: 24))
+                        .bold()
+                        .underline()
+                    + Text("?")
+                        .font(.custom("PatrickHand-Regular", size: 24)))
+                        .foregroundStyle(JournalTheme.Colors.navy)
+                        .lineSpacing(4)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    (Text("These will become your ")
+                        .font(.custom("PatrickHand-Regular", size: 15))
+                        .foregroundStyle(JournalTheme.Colors.completedGray)
+                    + Text("must dos")
+                        .font(.custom("PatrickHand-Regular", size: 15))
+                        .foregroundStyle(JournalTheme.Colors.amber)
+                    + Text(". They are non-negotiable and you should aim to do these for a good productive day.")
+                        .font(.custom("PatrickHand-Regular", size: 15))
+                        .foregroundStyle(JournalTheme.Colors.completedGray))
+                        .lineSpacing(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .opacity(appeared ? 1 : 0)
                 .offset(y: appeared ? 0 : 15)
 
-                // Suggestion pills
+                // Basics suggestion pills
                 SuggestionPillGrid(
                     suggestions: HabitSuggestion.basics,
                     selectedNames: $data.selectedBasics,
-                    customPills: $data.customBasics
+                    customPills: $data.customBasics,
+                    customPillEmojis: $data.customPillEmojis
                 )
                 .opacity(appeared ? 1 : 0)
                 .offset(y: appeared ? 0 : 15)
 
-                // Add custom pill
+                // Responsibilities suggestion pills
+                SuggestionPillGrid(
+                    suggestions: HabitSuggestion.responsibilities,
+                    selectedNames: $data.selectedResponsibilities,
+                    customPills: $data.customResponsibilities,
+                    customPillEmojis: $data.customPillEmojis
+                )
+                .opacity(appeared ? 1 : 0)
+                .offset(y: appeared ? 0 : 15)
+
+                // Add custom pill (shared across both)
                 AddCustomPillField(
-                    placeholder: "e.g. Stretch, Skincare routine...",
+                    placeholder: "e.g. 🧘 Stretch, Skincare routine...",
                     selectedNames: $data.selectedBasics,
-                    customPills: $data.customBasics
+                    customPills: $data.customBasics,
+                    customPillEmojis: $data.customPillEmojis
                 )
                 .opacity(appeared ? 1 : 0)
                 .offset(y: appeared ? 0 : 15)
@@ -41,10 +79,14 @@ struct BasicsScreen: View {
             .padding(.horizontal, 28)
             .padding(.top, 24)
         }
+        .scrollDismissesKeyboard(.interactively)
+        .onTapGesture {
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        }
         .safeAreaInset(edge: .bottom) {
             VStack {
                 OnboardingContinueButton(
-                    hasSelections: !data.selectedBasics.isEmpty,
+                    hasSelections: hasSelections,
                     action: onContinue
                 )
             }

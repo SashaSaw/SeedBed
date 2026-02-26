@@ -30,7 +30,9 @@ struct NameScreen: View {
                     .opacity(showContent ? 1 : 0)
                     .offset(y: showContent ? 0 : 10)
 
-                TextField("Your name", text: $nameInput)
+                TextField("", text: $nameInput, prompt: Text("Your name")
+                    .font(.custom("PatrickHand-Regular", size: 20))
+                    .foregroundStyle(JournalTheme.Colors.completedGray))
                     .font(.custom("PatrickHand-Regular", size: 20))
                     .foregroundStyle(JournalTheme.Colors.inkBlack)
                     .multilineTextAlignment(.center)
@@ -77,6 +79,7 @@ struct NameScreen: View {
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
         }
+        .onTapGesture { nameFieldFocused = false }
         .animation(.easeInOut(duration: 0.25), value: hasName)
         .onAppear {
             nameInput = userName

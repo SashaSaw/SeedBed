@@ -22,16 +22,18 @@ struct FulfilmentScreen: View {
                 SuggestionPillGrid(
                     suggestions: HabitSuggestion.fulfilment,
                     selectedNames: $data.selectedFulfilment,
-                    customPills: $data.customFulfilment
+                    customPills: $data.customFulfilment,
+                    customPillEmojis: $data.customPillEmojis
                 )
                 .opacity(appeared ? 1 : 0)
                 .offset(y: appeared ? 0 : 15)
 
                 // Add custom pill
                 AddCustomPillField(
-                    placeholder: "e.g. Guitar, Yoga, Learn Spanish...",
+                    placeholder: "e.g. 🎸 Guitar, Yoga, Learn Spanish...",
                     selectedNames: $data.selectedFulfilment,
-                    customPills: $data.customFulfilment
+                    customPills: $data.customFulfilment,
+                    customPillEmojis: $data.customPillEmojis
                 )
                 .opacity(appeared ? 1 : 0)
                 .offset(y: appeared ? 0 : 15)
@@ -40,6 +42,10 @@ struct FulfilmentScreen: View {
             }
             .padding(.horizontal, 28)
             .padding(.top, 24)
+        }
+        .scrollDismissesKeyboard(.interactively)
+        .onTapGesture {
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
         }
         .safeAreaInset(edge: .bottom) {
             VStack {

@@ -99,7 +99,7 @@ struct GestureTutorialOverlay: View {
 
     private var stepTitle: String {
         switch tutorialStep {
-        case 0: return "Tap to cross off"
+        case 0: return "Swipe to cross off"
         case 1: return "Swipe left to archive"
         case 2: return "Long-press to start a group"
         case 3: return "Select habits for your group"

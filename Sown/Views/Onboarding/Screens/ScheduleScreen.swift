@@ -110,6 +110,8 @@ struct ScheduleScreen: View {
                 .datePickerStyle(.compact)
                 .labelsHidden()
                 .tint(JournalTheme.Colors.navy)
+                .environment(\.colorScheme, .light)
+                .fixedSize()
         }
         .padding(14)
         .background(

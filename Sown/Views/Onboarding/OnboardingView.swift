@@ -12,10 +12,10 @@ struct OnboardingView: View {
     // Back hint — shown on pages 2+ until user swipes backward
     @State private var showSwipeBackHint = true
 
-    // 0=Welcome, 1=Name, 2=Basics, 3=Responsibilities, 4=DontDo, 5=TodayTasks, 6=Fulfilment, 7=Schedule, 8=Refinement, 9=Complete
-    private let totalPages = 10
+    // 0=Welcome, 1=Name, 2=Basics, 3=DontDo, 4=TodayTasks, 5=Fulfilment, 6=Schedule, 7=Refinement, 8=Complete
+    private let totalPages = 9
     /// Index of the Schedule screen (draft habits generated when leaving it)
-    private let schedulePageIndex = 7
+    private let schedulePageIndex = 6
 
     var body: some View {
         ZStack {
@@ -57,41 +57,35 @@ struct OnboardingView: View {
                     BasicsScreen(data: data, onContinue: { advance() })
                         .tag(2)
 
-                    ResponsibilitiesScreen(data: data, onContinue: { advance() })
+                    DontDoScreen(data: data, onContinue: { advance() })
                         .tag(3)
 
-                    DontDoScreen(data: data, onContinue: { advance() })
+                    TodayTasksScreen(data: data, onContinue: { advance() })
                         .tag(4)
 
-                    TodayTasksScreen(data: data, onContinue: { advance() })
+                    FulfilmentScreen(data: data, onContinue: { advance() })
                         .tag(5)
 
-                    FulfilmentScreen(data: data, onContinue: { advance() })
-                        .tag(6)
-
                     ScheduleScreen(data: data, onContinue: { advance() })
-                        .tag(7)
+                        .tag(6)
 
                     RefinementScreen(
                         data: data,
                         onContinue: { advance() },
                         onGoBack: { goBack(to: 2) }
                     )
-                    .tag(8)
+                    .tag(7)
 
                     CompleteScreen(
                         data: data,
                         store: store,
                         onFinish: onComplete
                     )
-                    .tag(9)
+                    .tag(8)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 .animation(.easeInOut(duration: 0.35), value: currentPage)
             }
-        }
-        .onTapGesture {
-            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
         }
         .onChange(of: currentPage) { oldPage, newPage in
             // Dismiss back hint when user swipes backward

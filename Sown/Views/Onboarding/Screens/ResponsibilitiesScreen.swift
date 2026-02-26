@@ -22,16 +22,18 @@ struct ResponsibilitiesScreen: View {
                 SuggestionPillGrid(
                     suggestions: HabitSuggestion.responsibilities,
                     selectedNames: $data.selectedResponsibilities,
-                    customPills: $data.customResponsibilities
+                    customPills: $data.customResponsibilities,
+                    customPillEmojis: $data.customPillEmojis
                 )
                 .opacity(appeared ? 1 : 0)
                 .offset(y: appeared ? 0 : 15)
 
                 // Add custom pill
                 AddCustomPillField(
-                    placeholder: "e.g. Check emails, Water plants...",
+                    placeholder: "e.g. 🪴 Water plants, Check emails...",
                     selectedNames: $data.selectedResponsibilities,
-                    customPills: $data.customResponsibilities
+                    customPills: $data.customResponsibilities,
+                    customPillEmojis: $data.customPillEmojis
                 )
                 .opacity(appeared ? 1 : 0)
                 .offset(y: appeared ? 0 : 15)
@@ -40,6 +42,10 @@ struct ResponsibilitiesScreen: View {
             }
             .padding(.horizontal, 28)
             .padding(.top, 24)
+        }
+        .scrollDismissesKeyboard(.interactively)
+        .onTapGesture {
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
         }
         .safeAreaInset(edge: .bottom) {
             VStack {

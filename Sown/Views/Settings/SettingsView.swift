@@ -344,6 +344,8 @@ struct SettingsView: View {
                     .datePickerStyle(.compact)
                     .labelsHidden()
                     .tint(JournalTheme.Colors.navy)
+                    .environment(\.colorScheme, .light)
+                    .fixedSize()
                 }
 
                 HStack {
@@ -361,6 +363,8 @@ struct SettingsView: View {
                     .datePickerStyle(.compact)
                     .labelsHidden()
                     .tint(JournalTheme.Colors.navy)
+                    .environment(\.colorScheme, .light)
+                    .fixedSize()
                 }
             }
         }

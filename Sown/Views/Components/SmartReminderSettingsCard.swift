@@ -65,7 +65,10 @@ struct SmartReminderSettingsCard: View {
                                     )
                                     .datePickerStyle(.wheel)
                                     .labelsHidden()
+                                    .frame(maxWidth: .infinity)
                                     .frame(height: 120)
+                                    .clipped()
+                                    .environment(\.colorScheme, .light)
 
                                     if schedule.hasOverride(for: index) {
                                         Button {
@@ -80,7 +83,6 @@ struct SmartReminderSettingsCard: View {
                                         .buttonStyle(.plain)
                                     }
                                 }
-                                .padding(.leading, 88)
                                 .padding(.top, 4)
                                 .padding(.bottom, 8)
                                 .transition(.opacity.combined(with: .move(edge: .top)))

@@ -200,6 +200,7 @@ struct AddTodayTaskView: View {
                     .datePickerStyle(.wheel)
                     .labelsHidden()
                     .frame(maxWidth: .infinity)
+                    .environment(\.colorScheme, .light)
                     .background(
                         RoundedRectangle(cornerRadius: 12)
                             .fill(Color.white.opacity(0.7))

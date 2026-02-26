@@ -22,16 +22,18 @@ struct DontDoScreen: View {
                 SuggestionPillGrid(
                     suggestions: HabitSuggestion.dontDos,
                     selectedNames: $data.selectedDontDos,
-                    customPills: $data.customDontDos
+                    customPills: $data.customDontDos,
+                    customPillEmojis: $data.customPillEmojis
                 )
                 .opacity(appeared ? 1 : 0)
                 .offset(y: appeared ? 0 : 15)
 
                 // Add custom pill
                 AddCustomPillField(
-                    placeholder: "e.g. No energy drinks, No nail biting...",
+                    placeholder: "e.g. 🚫 No energy drinks, No nail biting...",
                     selectedNames: $data.selectedDontDos,
-                    customPills: $data.customDontDos
+                    customPills: $data.customDontDos,
+                    customPillEmojis: $data.customPillEmojis
                 )
                 .opacity(appeared ? 1 : 0)
                 .offset(y: appeared ? 0 : 15)
@@ -40,6 +42,10 @@ struct DontDoScreen: View {
             }
             .padding(.horizontal, 28)
             .padding(.top, 24)
+        }
+        .scrollDismissesKeyboard(.interactively)
+        .onTapGesture {
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
         }
         .safeAreaInset(edge: .bottom) {
             VStack {

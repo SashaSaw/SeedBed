@@ -143,6 +143,10 @@ struct RefinementScreen: View {
             .padding(.horizontal, 28)
             .padding(.top, 24)
         }
+        .scrollDismissesKeyboard(.interactively)
+        .onTapGesture {
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        }
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 8) {
                 Button(action: onContinue) {

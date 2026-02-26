@@ -6,11 +6,14 @@ struct HabitGenerator {
     static func generate(from data: OnboardingData) -> [DraftHabit] {
         var habits: [DraftHabit] = []
 
+        let emojis = data.customPillEmojis
+
         // Map basics selections (templates + custom pills)
         habits += mapSelections(
             selected: data.selectedBasics,
             templates: HabitSuggestion.basics,
             customPills: data.customBasics,
+            customPillEmojis: emojis,
             source: .basics,
             customTier: .mustDo
         )
@@ -20,6 +23,7 @@ struct HabitGenerator {
             selected: data.selectedResponsibilities,
             templates: HabitSuggestion.responsibilities,
             customPills: data.customResponsibilities,
+            customPillEmojis: emojis,
             source: .responsibilities,
             customTier: .mustDo
         )
@@ -29,6 +33,7 @@ struct HabitGenerator {
             selected: data.selectedDontDos,
             templates: HabitSuggestion.dontDos,
             customPills: data.customDontDos,
+            customPillEmojis: emojis,
             source: .dontDo,
             customTier: .mustDo,
             customType: .negative
@@ -39,6 +44,7 @@ struct HabitGenerator {
             selected: data.selectedFulfilment,
             templates: HabitSuggestion.fulfilment,
             customPills: data.customFulfilment,
+            customPillEmojis: emojis,
             source: .fulfilment,
             customTier: .niceToDo
         )
@@ -71,6 +77,7 @@ struct HabitGenerator {
         selected: Set<String>,
         templates: [HabitSuggestion],
         customPills: [String],
+        customPillEmojis: [String: String],
         source: DraftHabit.HabitSource,
         customTier: HabitTier,
         customType: HabitType = .positive
@@ -82,10 +89,11 @@ struct HabitGenerator {
                 // Known template — use its full config
                 habits.append(draftFromTemplate(template, source: source))
             } else if customPills.contains(name) {
-                // User-added custom pill — sensible defaults
+                // User-added custom pill — use picked emoji or sensible default
+                let emoji = customPillEmojis[name] ?? (customType == .negative ? "🚫" : "✨")
                 habits.append(DraftHabit(
                     name: name,
-                    emoji: customType == .negative ? "🚫" : "✨",
+                    emoji: emoji,
                     tier: customTier,
                     type: customType,
                     frequencyType: .daily,

@@ -40,6 +40,18 @@ When providing Xcode instructions:
 
 ---
 
+## UI Rules
+
+### Text Must Always Be Readable Against Its Background
+
+- **Light backgrounds** (paper, paperLight, white): use dark text (`inkBlack`, `navy`, `completedGray` for secondary text). Never leave text as the system default — it's often too faint on our paper colours.
+- **Dark backgrounds** (navy, inkBlue, teal fills): use white or light text.
+- **Placeholder text**: always set explicitly via the `prompt:` parameter with `completedGray` — the system default placeholder is nearly invisible on paper backgrounds.
+- **DatePickers**: always add `.environment(\.colorScheme, .light)` so the time text renders dark. For `.compact` style, also add `.fixedSize()` to prevent layout widening. For `.wheel` style, add `.frame(maxWidth: .infinity)` and `.clipped()`.
+- **When implementing any new feature**, verify that all text and controls have sufficient contrast against their background. Don't rely on system defaults — they assume a pure white background which we don't use.
+
+---
+
 ## Common Issues & Solutions
 
 ### SwiftData: Enum Default Values Don't Work

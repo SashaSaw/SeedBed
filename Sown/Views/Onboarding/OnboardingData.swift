@@ -23,6 +23,9 @@ final class OnboardingData {
     var selectedFulfilment: Set<String> = []
     var customFulfilment: [String] = []      // user-added pills
 
+    // Emoji choices for custom pills (pill name → chosen emoji)
+    var customPillEmojis: [String: String] = [:]
+
     // Screen 4: Schedule
     var wakeUpTime: Date = Calendar.current.date(from: DateComponents(hour: 7, minute: 0)) ?? Date()
     var bedTime: Date = Calendar.current.date(from: DateComponents(hour: 23, minute: 0)) ?? Date()

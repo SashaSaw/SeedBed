@@ -85,9 +85,10 @@ struct TodayTasksScreen: View {
 
                     // Add task field
                     AddCustomPillField(
-                        placeholder: "e.g. Pay electricity bill, Book dentist...",
+                        placeholder: "e.g. 📌 Pay electricity bill, Book dentist...",
                         selectedNames: $data.selectedTasks,
-                        customPills: $data.todayTasks
+                        customPills: $data.todayTasks,
+                        customPillEmojis: $data.customPillEmojis
                     )
                 }
                 .opacity(appeared ? 1 : 0)
@@ -97,6 +98,10 @@ struct TodayTasksScreen: View {
             }
             .padding(.horizontal, 28)
             .padding(.top, 24)
+        }
+        .scrollDismissesKeyboard(.interactively)
+        .onTapGesture {
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
         }
         .safeAreaInset(edge: .bottom) {
             VStack {

@@ -24,6 +24,16 @@ struct HabitGenerator {
             customTier: .mustDo
         )
 
+        // Map don't-do selections (negative habits)
+        habits += mapSelections(
+            selected: data.selectedDontDos,
+            templates: HabitSuggestion.dontDos,
+            customPills: data.customDontDos,
+            source: .dontDo,
+            customTier: .mustDo,
+            customType: .negative
+        )
+
         // Map fulfilment selections (templates + custom pills)
         habits += mapSelections(
             selected: data.selectedFulfilment,
@@ -62,7 +72,8 @@ struct HabitGenerator {
         templates: [HabitSuggestion],
         customPills: [String],
         source: DraftHabit.HabitSource,
-        customTier: HabitTier
+        customTier: HabitTier,
+        customType: HabitType = .positive
     ) -> [DraftHabit] {
         var habits: [DraftHabit] = []
 
@@ -74,9 +85,9 @@ struct HabitGenerator {
                 // User-added custom pill — sensible defaults
                 habits.append(DraftHabit(
                     name: name,
-                    emoji: "✨",
+                    emoji: customType == .negative ? "🚫" : "✨",
                     tier: customTier,
-                    type: .positive,
+                    type: customType,
                     frequencyType: .daily,
                     frequencyTarget: 1,
                     successCriteria: "",

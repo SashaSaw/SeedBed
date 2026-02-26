@@ -4,6 +4,7 @@ import SwiftUI
 /// Used in onboarding ScheduleScreen and in the main app settings
 struct SmartReminderSettingsCard: View {
     @State private var schedule = UserSchedule.shared
+    @State private var editingReminderIndex: Int? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -29,7 +30,7 @@ struct SmartReminderSettingsCard: View {
 
             if schedule.smartRemindersEnabled {
                 // Explanation
-                Text("You'll get 5 nudges throughout the day, timed around your habits.")
+                Text("Tap a reminder to change its time.")
                     .font(.custom("PatrickHand-Regular", size: 13))
                     .foregroundStyle(JournalTheme.Colors.completedGray)
                     .fixedSize(horizontal: false, vertical: true)
@@ -37,12 +38,54 @@ struct SmartReminderSettingsCard: View {
                 // Reminder timeline
                 VStack(alignment: .leading, spacing: 10) {
                     ForEach(Array(schedule.allReminderSlots.enumerated()), id: \.offset) { index, slot in
-                        reminderRow(
-                            number: index + 1,
-                            time: formatMinutes(slot.minutes),
-                            label: slot.label,
-                            description: reminderDescription(for: index)
-                        )
+                        VStack(alignment: .leading, spacing: 0) {
+                            reminderRow(
+                                number: index + 1,
+                                time: formatMinutes(slot.minutes),
+                                label: slot.label,
+                                description: reminderDescription(for: index),
+                                isEditing: editingReminderIndex == index,
+                                hasOverride: schedule.hasOverride(for: index)
+                            )
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                Feedback.selection()
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    editingReminderIndex = editingReminderIndex == index ? nil : index
+                                }
+                            }
+
+                            // Expanded time picker
+                            if editingReminderIndex == index {
+                                VStack(spacing: 8) {
+                                    DatePicker(
+                                        "Time",
+                                        selection: reminderBinding(for: index),
+                                        displayedComponents: .hourAndMinute
+                                    )
+                                    .datePickerStyle(.wheel)
+                                    .labelsHidden()
+                                    .frame(height: 120)
+
+                                    if schedule.hasOverride(for: index) {
+                                        Button {
+                                            Feedback.selection()
+                                            schedule.resetReminderToDefault(index)
+                                            NotificationCenter.default.post(name: .smartRemindersChanged, object: nil)
+                                        } label: {
+                                            Text("Reset to default (\(formatMinutes(schedule.defaultMinutes(for: index))))")
+                                                .font(.custom("PatrickHand-Regular", size: 13))
+                                                .foregroundStyle(JournalTheme.Colors.amber)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                                .padding(.leading, 88)
+                                .padding(.top, 4)
+                                .padding(.bottom, 8)
+                                .transition(.opacity.combined(with: .move(edge: .top)))
+                            }
+                        }
                     }
                 }
             }
@@ -67,17 +110,24 @@ struct SmartReminderSettingsCard: View {
 
     // MARK: - Row
 
-    private func reminderRow(number: Int, time: String, label: String, description: String) -> some View {
+    private func reminderRow(number: Int, time: String, label: String, description: String, isEditing: Bool, hasOverride: Bool) -> some View {
         HStack(alignment: .top, spacing: 12) {
             // Time badge
-            Text(time)
-                .font(.system(size: 12, weight: .medium, design: .monospaced))
-                .foregroundStyle(JournalTheme.Colors.amber)
-                .frame(width: 68, alignment: .trailing)
+            HStack(spacing: 4) {
+                Text(time)
+                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .foregroundStyle(isEditing ? JournalTheme.Colors.inkBlue : JournalTheme.Colors.amber)
+                if hasOverride {
+                    Image(systemName: "pencil.circle.fill")
+                        .font(.system(size: 8))
+                        .foregroundStyle(JournalTheme.Colors.amber)
+                }
+            }
+            .frame(width: 76, alignment: .trailing)
 
             // Dot connector
             Circle()
-                .fill(JournalTheme.Colors.amber)
+                .fill(isEditing ? JournalTheme.Colors.inkBlue : JournalTheme.Colors.amber)
                 .frame(width: 8, height: 8)
                 .padding(.top, 4)
 
@@ -91,10 +141,32 @@ struct SmartReminderSettingsCard: View {
                     .foregroundStyle(JournalTheme.Colors.completedGray)
                     .fixedSize(horizontal: false, vertical: true)
             }
+
+            Spacer()
+
+            Image(systemName: isEditing ? "chevron.up" : "chevron.down")
+                .font(.system(size: 10))
+                .foregroundStyle(JournalTheme.Colors.completedGray)
+                .padding(.top, 4)
         }
     }
 
     // MARK: - Helpers
+
+    private func reminderBinding(for index: Int) -> Binding<Date> {
+        Binding<Date>(
+            get: {
+                let minutes = schedule.allReminderSlots[index].minutes
+                return Calendar.current.date(from: DateComponents(hour: minutes / 60, minute: minutes % 60)) ?? Date()
+            },
+            set: { newDate in
+                let comps = Calendar.current.dateComponents([.hour, .minute], from: newDate)
+                let minutes = (comps.hour ?? 0) * 60 + (comps.minute ?? 0)
+                schedule.setReminderOverride(index, minutes: minutes)
+                NotificationCenter.default.post(name: .smartRemindersChanged, object: nil)
+            }
+        )
+    }
 
     private func reminderDescription(for index: Int) -> String {
         switch index {

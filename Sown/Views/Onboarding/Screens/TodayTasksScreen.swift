@@ -6,6 +6,18 @@ struct TodayTasksScreen: View {
     let onContinue: () -> Void
 
     @State private var appeared = false
+    @State private var hiddenSuggestions: Set<String> = []
+
+    private let taskSuggestions = [
+        "Doctor appointment", "Buy groceries", "Pay bills",
+        "Reply to emails", "Call plumber", "Return package",
+        "Clean the house", "Haircut", "Buy a gift"
+    ]
+
+    /// Suggestions not yet added as tasks
+    private var visibleSuggestions: [String] {
+        taskSuggestions.filter { !hiddenSuggestions.contains($0) && !data.todayTasks.contains($0) }
+    }
 
     var body: some View {
         ScrollView {
@@ -18,7 +30,42 @@ struct TodayTasksScreen: View {
                 .opacity(appeared ? 1 : 0)
                 .offset(y: appeared ? 0 : 15)
 
-                // Task pills
+                // Task suggestion pills
+                if !visibleSuggestions.isEmpty {
+                    FlowLayout(spacing: 10) {
+                        ForEach(visibleSuggestions, id: \.self) { suggestion in
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    data.todayTasks.append(suggestion)
+                                    data.selectedTasks.insert(suggestion)
+                                    hiddenSuggestions.insert(suggestion)
+                                }
+                                Feedback.selection()
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "plus")
+                                        .font(.system(size: 10, weight: .medium))
+                                        .foregroundStyle(JournalTheme.Colors.teal)
+                                    Text(suggestion)
+                                        .font(.custom("PatrickHand-Regular", size: 14))
+                                        .foregroundStyle(JournalTheme.Colors.inkBlack)
+                                }
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 10)
+                                .background(
+                                    Capsule()
+                                        .strokeBorder(JournalTheme.Colors.teal.opacity(0.5), lineWidth: 1)
+                                        .background(Capsule().fill(JournalTheme.Colors.teal.opacity(0.08)))
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .opacity(appeared ? 1 : 0)
+                    .offset(y: appeared ? 0 : 15)
+                }
+
+                // Task pills (added tasks)
                 VStack(alignment: .leading, spacing: 12) {
                     if !data.todayTasks.isEmpty {
                         FlowLayout(spacing: 10) {
@@ -27,6 +74,8 @@ struct TodayTasksScreen: View {
                                     withAnimation(.easeInOut(duration: 0.2)) {
                                         data.todayTasks.removeAll { $0 == task }
                                         data.selectedTasks.remove(task)
+                                        // Re-show the suggestion if it was from the list
+                                        hiddenSuggestions.remove(task)
                                     }
                                     Feedback.selection()
                                 }

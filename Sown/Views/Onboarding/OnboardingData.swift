@@ -15,7 +15,11 @@ final class OnboardingData {
     var todayTasks: [String] = []             // pill-based one-off tasks
     var selectedTasks: Set<String> = []       // selected task pills
 
-    // Screen 3: Fulfilment (Esteem + Self-Actualisation)
+    // Screen 3: Don't Do (negative habits to quit)
+    var selectedDontDos: Set<String> = []
+    var customDontDos: [String] = []
+
+    // Screen 4: Fulfilment (Esteem + Self-Actualisation)
     var selectedFulfilment: Set<String> = []
     var customFulfilment: [String] = []      // user-added pills
 
@@ -34,6 +38,7 @@ final class OnboardingData {
     var hasAnySelections: Bool {
         !selectedBasics.isEmpty ||
         !selectedResponsibilities.isEmpty ||
+        !selectedDontDos.isEmpty ||
         !todayTasks.isEmpty ||
         !selectedFulfilment.isEmpty
     }
@@ -81,6 +86,7 @@ struct DraftHabit: Identifiable {
     enum HabitSource {
         case basics
         case responsibilities
+        case dontDo
         case fulfilment
         case freeText
         case task
@@ -189,12 +195,19 @@ extension HabitSuggestion {
     static let responsibilities: [HabitSuggestion] = [
         HabitSuggestion(emoji: "🛏️", name: "Make bed", timeOfDay: .afterWake),
         HabitSuggestion(emoji: "🧹", name: "Tidy up", defaultCriteria: "15 min", timeOfDay: .evening),
-        HabitSuggestion(emoji: "📵", name: "No scrolling", type: .negative, timeOfDay: .duringTheDay, triggersAppBlockSlip: true),
         HabitSuggestion(emoji: "📞", name: "Call family", frequencyType: .weekly, timeOfDay: .evening),
         HabitSuggestion(emoji: "🦷", name: "Brush & floss", timeOfDay: .afterWake),
         HabitSuggestion(emoji: "🐕", name: "Walk the dog", timeOfDay: .afterWake),
         HabitSuggestion(emoji: "💰", name: "Review budget", frequencyType: .monthly, timeOfDay: .evening),
         HabitSuggestion(emoji: "🌙", name: "Wind-down routine", defaultCriteria: "30 min", tier: .niceToDo, timeOfDay: .beforeBed),
+    ]
+
+    static let dontDos: [HabitSuggestion] = [
+        HabitSuggestion(emoji: "📵", name: "No scrolling", type: .negative, timeOfDay: .duringTheDay, triggersAppBlockSlip: true),
+        HabitSuggestion(emoji: "🍔", name: "No junk food", type: .negative, timeOfDay: .duringTheDay),
+        HabitSuggestion(emoji: "🚭", name: "No smoking", type: .negative, timeOfDay: .duringTheDay),
+        HabitSuggestion(emoji: "🚫", name: "No alcohol", type: .negative, timeOfDay: .evening),
+        HabitSuggestion(emoji: "🌙", name: "No late-night snacking", type: .negative, timeOfDay: .beforeBed),
     ]
 
     static let fulfilment: [HabitSuggestion] = [

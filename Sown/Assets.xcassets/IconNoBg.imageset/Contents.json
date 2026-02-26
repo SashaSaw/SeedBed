@@ -1,17 +1,17 @@
 {
   "images" : [
     {
-      "filename" : "Icon-Cropped.png",
+      "filename" : "icon2-nobg.png",
       "idiom" : "universal",
       "scale" : "1x"
     },
     {
-      "filename" : "Icon-Cropped 1.png",
+      "filename" : "icon2-nobg 1.png",
       "idiom" : "universal",
       "scale" : "2x"
     },
     {
-      "filename" : "Icon-Cropped 2.png",
+      "filename" : "icon2-nobg 2.png",
       "idiom" : "universal",
       "scale" : "3x"
     }

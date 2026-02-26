@@ -52,6 +52,10 @@ struct TodayContentView: View {
     @AppStorage("hasSeenGroupCallout") private var hasSeenGroupCallout: Bool = false
     @State private var showGroupCallout: Bool = false
 
+    // First-time gesture tutorial
+    @AppStorage("hasSeenGestureTutorial") private var hasSeenGestureTutorial: Bool = false
+    @State private var showGestureTutorial: Bool = false
+
     // Block setup sheet
     @State private var showingBlockSetup: Bool = false
 
@@ -337,6 +341,18 @@ struct TodayContentView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
+
+            // Gesture tutorial overlay (first time only)
+            if showGestureTutorial {
+                GestureTutorialOverlay {
+                    withAnimation(.easeOut(duration: 0.3)) {
+                        showGestureTutorial = false
+                    }
+                    hasSeenGestureTutorial = true
+                }
+                .transition(.opacity)
+                .zIndex(200)
+            }
         }
         .sheet(item: $selectedHabit) { habit in
             NavigationStack {
@@ -443,6 +459,16 @@ struct TodayContentView: View {
             }
             // Check for morning tasks prompt
             checkMorningTasksPrompt()
+
+            // Show gesture tutorial on first visit (with delay, only if no other overlays)
+            if !hasSeenGestureTutorial && !showCelebration && !showHobbyOverlay && !showCriteriaOverlay {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    guard !hasSeenGestureTutorial else { return }
+                    withAnimation(.easeIn(duration: 0.3)) {
+                        showGestureTutorial = true
+                    }
+                }
+            }
 
             // Set up HealthKit integration
             setupHealthKitObserver()

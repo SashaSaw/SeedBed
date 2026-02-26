@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import CloudKit
 
 /// Main service for managing iCloud sync functionality.
 /// Handles opt-in toggle, status tracking, and ModelContainer creation.
@@ -175,6 +176,100 @@ final class CloudSyncService {
     /// Check iCloud availability
     var isCloudAvailable: Bool {
         FileManager.default.ubiquityIdentityToken != nil
+    }
+
+    /// Whether an iCloud backup exists (cloud zones or iCloud Documents found)
+    var hasCloudBackup: Bool = false
+
+    /// Check if any cloud data exists (call on appear)
+    func checkForExistingBackup() {
+        guard isCloudAvailable else {
+            hasCloudBackup = false
+            return
+        }
+
+        Task {
+            var found = false
+
+            // Check for CloudKit zones
+            do {
+                let container = CKContainer(identifier: "iCloud.com.incept5.SeedBed")
+                let zones = try await container.privateCloudDatabase.allRecordZones()
+                if !zones.isEmpty { found = true }
+            } catch {
+                // If we can't check, fall back to other signals
+            }
+
+            // Check for iCloud Documents folder
+            if !found {
+                let fileManager = FileManager.default
+                if let iCloudURL = fileManager.url(forUbiquityContainerIdentifier: "iCloud.com.incept5.SeedBed") {
+                    let docsURL = iCloudURL.appendingPathComponent("Documents")
+                    if fileManager.fileExists(atPath: docsURL.path) {
+                        found = true
+                    }
+                }
+            }
+
+            // Check for NSUbiquitousKeyValueStore data
+            if !found {
+                let kvStore = NSUbiquitousKeyValueStore.default
+                if !kvStore.dictionaryRepresentation.isEmpty { found = true }
+            }
+
+            await MainActor.run {
+                hasCloudBackup = found
+            }
+        }
+    }
+
+    // MARK: - Delete Cloud Data
+
+    /// Deletes all iCloud data: CloudKit database zone, iCloud Documents (photos), and key-value store settings.
+    /// After deletion, disables sync and requires app restart.
+    func deleteCloudData() async {
+        let fileManager = FileManager.default
+
+        // 1. Delete CloudKit private database zone
+        // CKRecordZone.ID for SwiftData's default zone
+        do {
+            let container = CKContainer(identifier: "iCloud.com.incept5.SeedBed")
+            let database = container.privateCloudDatabase
+            let zones = try await database.allRecordZones()
+            for zone in zones {
+                try await database.deleteRecordZone(withID: zone.zoneID)
+            }
+            print("CloudSyncService: Deleted \(zones.count) CloudKit zone(s)")
+        } catch {
+            print("CloudSyncService: Failed to delete CloudKit zones: \(error)")
+        }
+
+        // 2. Delete iCloud Documents (photos)
+        if let iCloudURL = fileManager.url(forUbiquityContainerIdentifier: "iCloud.com.incept5.SeedBed") {
+            let docsURL = iCloudURL.appendingPathComponent("Documents")
+            if fileManager.fileExists(atPath: docsURL.path) {
+                try? fileManager.removeItem(at: docsURL)
+                print("CloudSyncService: Deleted iCloud Documents folder")
+            }
+        }
+
+        // 3. Clear NSUbiquitousKeyValueStore (synced settings)
+        let kvStore = NSUbiquitousKeyValueStore.default
+        for key in kvStore.dictionaryRepresentation.keys {
+            kvStore.removeObject(forKey: key)
+        }
+        kvStore.synchronize()
+        print("CloudSyncService: Cleared iCloud key-value store")
+
+        // 4. Disable sync locally and clear backup state
+        await MainActor.run {
+            UserDefaults.standard.set(false, forKey: "iCloudSyncEnabled")
+            isSyncing = false
+            lastSyncDate = nil
+            totalDataSize = 0
+            hasCloudBackup = false
+            NotificationCenter.default.post(name: .cloudSyncStateChanged, object: nil)
+        }
     }
 }
 

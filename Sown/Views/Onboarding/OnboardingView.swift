@@ -9,10 +9,13 @@ struct OnboardingView: View {
     @State private var highestPageReached = 0
     @State private var data = OnboardingData()
 
-    // 0=Welcome, 1=Name, 2=Basics, 3=Responsibilities, 4=TodayTasks, 5=Fulfilment, 6=Schedule, 7=Refinement, 8=Complete
-    private let totalPages = 9
+    // Back hint — shown on pages 2+ until user swipes backward
+    @State private var showSwipeBackHint = true
+
+    // 0=Welcome, 1=Name, 2=Basics, 3=Responsibilities, 4=DontDo, 5=TodayTasks, 6=Fulfilment, 7=Schedule, 8=Refinement, 9=Complete
+    private let totalPages = 10
     /// Index of the Schedule screen (draft habits generated when leaving it)
-    private let schedulePageIndex = 6
+    private let schedulePageIndex = 7
 
     var body: some View {
         ZStack {
@@ -21,13 +24,26 @@ struct OnboardingView: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                // Progress bar (visible on screens 2-7, not welcome/name or complete)
+                // Progress bar (visible on screens 2-8, not welcome/name or complete)
                 if currentPage > 1 && currentPage < totalPages - 1 {
                     OnboardingProgressBar(current: currentPage - 1, total: totalPages - 3)
                         .padding(.horizontal, 28)
                         .padding(.top, 12)
-                        .padding(.bottom, 8)
+                        .padding(.bottom, 4)
                         .transition(.opacity)
+                }
+
+                // Swipe-back hint (visible on pages 2-8 until user swipes backward)
+                if showSwipeBackHint && currentPage > 1 && currentPage < totalPages - 1 {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 10, weight: .medium))
+                        Text("Swipe back to change answers")
+                            .font(.custom("PatrickHand-Regular", size: 13))
+                    }
+                    .foregroundStyle(JournalTheme.Colors.completedGray)
+                    .padding(.bottom, 4)
+                    .transition(.opacity)
                 }
 
                 // Page content
@@ -44,34 +60,47 @@ struct OnboardingView: View {
                     ResponsibilitiesScreen(data: data, onContinue: { advance() })
                         .tag(3)
 
-                    TodayTasksScreen(data: data, onContinue: { advance() })
+                    DontDoScreen(data: data, onContinue: { advance() })
                         .tag(4)
 
-                    FulfilmentScreen(data: data, onContinue: { advance() })
+                    TodayTasksScreen(data: data, onContinue: { advance() })
                         .tag(5)
 
-                    ScheduleScreen(data: data, onContinue: { advance() })
+                    FulfilmentScreen(data: data, onContinue: { advance() })
                         .tag(6)
+
+                    ScheduleScreen(data: data, onContinue: { advance() })
+                        .tag(7)
 
                     RefinementScreen(
                         data: data,
                         onContinue: { advance() },
                         onGoBack: { goBack(to: 2) }
                     )
-                    .tag(7)
+                    .tag(8)
 
                     CompleteScreen(
                         data: data,
                         store: store,
                         onFinish: onComplete
                     )
-                    .tag(8)
+                    .tag(9)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 .animation(.easeInOut(duration: 0.35), value: currentPage)
             }
         }
+        .onTapGesture {
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        }
         .onChange(of: currentPage) { oldPage, newPage in
+            // Dismiss back hint when user swipes backward
+            if newPage < oldPage && showSwipeBackHint {
+                withAnimation(.easeOut(duration: 0.3)) {
+                    showSwipeBackHint = false
+                }
+            }
+
             // When user swipes forward past a page they haven't visited, treat it like continue/skip
             if newPage > highestPageReached {
                 // Generate draft habits when swiping past the schedule screen

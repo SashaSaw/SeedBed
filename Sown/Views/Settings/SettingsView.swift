@@ -11,6 +11,8 @@ struct SettingsView: View {
     @State private var isEditingName = false
     @State private var cloudSync = CloudSyncService.shared
     @State private var showingRestartAlert = false
+    @State private var showingDeleteCloudAlert = false
+    @State private var isDeletingCloudData = false
 
     var body: some View {
         NavigationStack {
@@ -150,6 +152,21 @@ struct SettingsView: View {
                 Button("OK") { }
             } message: {
                 Text("Please restart the app for iCloud sync changes to take effect.")
+            }
+            .alert("Delete iCloud Backup?", isPresented: $showingDeleteCloudAlert) {
+                Button("Cancel", role: .cancel) { }
+                Button("Delete", role: .destructive) {
+                    isDeletingCloudData = true
+                    Task {
+                        await cloudSync.deleteCloudData()
+                        await MainActor.run {
+                            isDeletingCloudData = false
+                            showingRestartAlert = true
+                        }
+                    }
+                }
+            } message: {
+                Text("This will permanently delete all your data from iCloud, including habits, logs, and photos. Your local data will not be affected. This cannot be undone.")
             }
             .onChange(of: schedule.wakeTimeMinutes) { _, _ in
                 store.refreshSmartReminders()
@@ -467,6 +484,30 @@ struct SettingsView: View {
                         .foregroundStyle(JournalTheme.Colors.amber)
                 }
             }
+
+            // Delete cloud backup button — shown when a backup is detected
+            if cloudSync.hasCloudBackup {
+                Button {
+                    Feedback.buttonPress()
+                    showingDeleteCloudAlert = true
+                } label: {
+                    HStack(spacing: 6) {
+                        if isDeletingCloudData {
+                            ProgressView()
+                                .scaleEffect(0.7)
+                                .tint(.red)
+                        } else {
+                            Image(systemName: "trash")
+                                .font(.system(size: 12))
+                        }
+                        Text(isDeletingCloudData ? "Deleting..." : "Delete iCloud Backup")
+                            .font(.custom("PatrickHand-Regular", size: 14))
+                    }
+                    .foregroundStyle(.red)
+                }
+                .buttonStyle(.plain)
+                .disabled(isDeletingCloudData)
+            }
         }
         .padding(16)
         .background(
@@ -477,5 +518,8 @@ struct SettingsView: View {
             RoundedRectangle(cornerRadius: 12)
                 .strokeBorder(JournalTheme.Colors.lineLight, lineWidth: 1)
         )
+        .onAppear {
+            cloudSync.checkForExistingBackup()
+        }
     }
 }

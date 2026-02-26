@@ -130,6 +130,14 @@ final class CloudSettingsService {
         // Smart reminders
         store.set(localDefaults.bool(forKey: Keys.smartRemindersEnabled), forKey: Keys.smartRemindersEnabled)
 
+        // Reminder overrides
+        for i in 1...5 {
+            let key = "reminder\(i)Override"
+            if localDefaults.object(forKey: key) != nil {
+                store.set(localDefaults.integer(forKey: key), forKey: key)
+            }
+        }
+
         // Force sync
         store.synchronize()
     }
@@ -215,6 +223,15 @@ final class CloudSettingsService {
                 localDefaults.set(store.bool(forKey: key), forKey: key)
                 NotificationCenter.default.post(name: .scheduleSettingsChanged, object: nil)
 
+            case _ where key.hasPrefix("reminder") && key.hasSuffix("Override"):
+                let value = Int(store.longLong(forKey: key))
+                if value >= 0 {
+                    localDefaults.set(value, forKey: key)
+                } else {
+                    localDefaults.removeObject(forKey: key)
+                }
+                NotificationCenter.default.post(name: .scheduleSettingsChanged, object: nil)
+
             default:
                 break
             }
@@ -226,4 +243,5 @@ final class CloudSettingsService {
 
 extension Notification.Name {
     static let scheduleSettingsChanged = Notification.Name("scheduleSettingsChanged")
+    static let smartRemindersChanged = Notification.Name("smartRemindersChanged")
 }

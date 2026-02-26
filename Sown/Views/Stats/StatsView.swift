@@ -848,8 +848,8 @@ struct DontDoStreakCard: View {
             daysClean = dayOffset + 1
         }
 
-        // Never slipped - return days since habit creation
-        return daysClean
+        // Never slipped - if created today return -1 so UI shows "new" not "slipped"
+        return daysClean == 0 ? -1 : daysClean
     }
 
     /// Best clean streak (longest period without slipping)
@@ -932,7 +932,16 @@ struct DontDoStreakCard: View {
 
             // Days clean counter
             HStack(spacing: 6) {
-                if daysSinceLastSlip > 0 {
+                if daysSinceLastSlip < 0 {
+                    // Created today, never slipped
+                    Image(systemName: "leaf.fill")
+                        .font(.system(size: 14))
+                        .foregroundStyle(JournalTheme.Colors.goodDayGreenDark)
+
+                    Text("Just started — stay strong!")
+                        .font(.custom("PatrickHand-Regular", size: 15))
+                        .foregroundStyle(JournalTheme.Colors.goodDayGreenDark)
+                } else if daysSinceLastSlip > 0 {
                     Image(systemName: "leaf.fill")
                         .font(.system(size: 14))
                         .foregroundStyle(JournalTheme.Colors.goodDayGreenDark)

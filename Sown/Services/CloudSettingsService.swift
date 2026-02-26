@@ -71,17 +71,10 @@ final class CloudSettingsService {
             return true
         }
 
-        // Check if iCloud says sync was enabled (user had it on before)
+        // Only restore if iCloud explicitly has sync enabled (user toggled it on before)
         if store.bool(forKey: Keys.iCloudSyncEnabled) {
             localDefaults.set(true, forKey: Keys.iCloudSyncEnabled)
             print("CloudSettingsService: Restored iCloud sync setting from cloud")
-            return true
-        }
-
-        // If user previously onboarded via iCloud, they must have had sync enabled
-        if store.bool(forKey: Keys.hasCompletedOnboarding) && !localDefaults.bool(forKey: Keys.hasCompletedOnboarding) {
-            localDefaults.set(true, forKey: Keys.iCloudSyncEnabled)
-            print("CloudSettingsService: Enabled iCloud sync because onboarding was restored from cloud")
             return true
         }
 

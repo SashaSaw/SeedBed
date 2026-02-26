@@ -11,10 +11,26 @@ struct FulfilmentScreen: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
                 // Prompt
-                OnboardingPromptView(
-                    question: "Now the good stuff.\nWhat makes you feel proud?",
-                    subtitle: "The things you wish you did more of."
-                )
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Now the good stuff.\nWhat would you like to start doing?")
+                        .font(.custom("PatrickHand-Regular", size: 24))
+                        .foregroundStyle(JournalTheme.Colors.navy)
+                        .lineSpacing(4)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    (Text("These will be your ")
+                        .font(.custom("PatrickHand-Regular", size: 15))
+                        .foregroundStyle(JournalTheme.Colors.completedGray)
+                    + Text("nice to dos")
+                        .font(.custom("PatrickHand-Regular", size: 15))
+                        .foregroundStyle(JournalTheme.Colors.navy)
+                    + Text(". Hobbies, interests, things you want to do more of \u{2014} they don\u{2019}t have to be daily, just things you\u{2019}d like in your routine.")
+                        .font(.custom("PatrickHand-Regular", size: 15))
+                        .foregroundStyle(JournalTheme.Colors.completedGray))
+                        .lineSpacing(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .opacity(appeared ? 1 : 0)
                 .offset(y: appeared ? 0 : 15)
 

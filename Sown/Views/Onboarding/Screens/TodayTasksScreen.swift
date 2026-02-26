@@ -23,10 +23,26 @@ struct TodayTasksScreen: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
                 // Prompt
-                OnboardingPromptView(
-                    question: "Anything you need to get done today?",
-                    subtitle: "These are one-off tasks, not habits. They disappear once done."
-                )
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Anything you need to get done today?")
+                        .font(.custom("PatrickHand-Regular", size: 24))
+                        .foregroundStyle(JournalTheme.Colors.navy)
+                        .lineSpacing(4)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    (Text("These are your basic ")
+                        .font(.custom("PatrickHand-Regular", size: 15))
+                        .foregroundStyle(JournalTheme.Colors.completedGray)
+                    + Text("to dos")
+                        .font(.custom("PatrickHand-Regular", size: 15))
+                        .foregroundStyle(JournalTheme.Colors.teal)
+                    + Text(". They disappear once done.")
+                        .font(.custom("PatrickHand-Regular", size: 15))
+                        .foregroundStyle(JournalTheme.Colors.completedGray))
+                        .lineSpacing(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .opacity(appeared ? 1 : 0)
                 .offset(y: appeared ? 0 : 15)
 

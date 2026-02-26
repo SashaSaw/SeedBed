@@ -879,7 +879,8 @@ final class HabitStore {
         }
     }
 
-    /// Calculates days since habit was last completed (for negative habits)
+    /// Calculates days since habit was last completed (for negative habits, "completed" = slipped).
+    /// Returns -1 if the habit was created today and has never slipped (so the UI can show "new" instead of "0 days").
     func calculateDaysSinceLastDone(for habit: Habit) -> Int {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
@@ -889,10 +890,12 @@ final class HabitStore {
             .sorted { $0.date > $1.date }
 
         guard let lastCompletedLog = completedLogs.first else {
-            // Never completed - count from creation date
+            // Never slipped - count from creation date
             let creationDay = calendar.startOfDay(for: habit.createdAt)
             let daysSinceCreation = calendar.dateComponents([.day], from: creationDay, to: today).day ?? 0
-            return max(0, daysSinceCreation)
+            // Created today with no slips — return -1 so UI doesn't show "slipped"
+            if daysSinceCreation == 0 { return -1 }
+            return daysSinceCreation
         }
 
         let lastCompletedDate = calendar.startOfDay(for: lastCompletedLog.date)

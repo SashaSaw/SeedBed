@@ -1884,7 +1884,7 @@ struct NegativeHabitLinedRow: View {
 
                 // Days since / slipped pill badge
                 if !isCompleted {
-                    Text("\(daysSince) days")
+                    Text(daysSince < 0 ? "New" : "\(daysSince) days")
                         .font(.custom("PatrickHand-Regular", size: 10))
                         .foregroundStyle(JournalTheme.Colors.goodDayGreenDark)
                         .padding(.horizontal, 8)

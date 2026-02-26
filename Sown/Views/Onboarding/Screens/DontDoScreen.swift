@@ -11,10 +11,32 @@ struct DontDoScreen: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
                 // Prompt
-                OnboardingPromptView(
-                    question: "Anything you're trying to quit?",
-                    subtitle: "Bad habits you want to break or things you want to avoid."
-                )
+                VStack(alignment: .leading, spacing: 10) {
+                    (Text("Anything you\u{2019}re trying to ")
+                        .font(.custom("PatrickHand-Regular", size: 24))
+                    + Text("quit")
+                        .font(.custom("PatrickHand-Regular", size: 24))
+                        .bold()
+                        .underline()
+                    + Text("?")
+                        .font(.custom("PatrickHand-Regular", size: 24)))
+                        .foregroundStyle(JournalTheme.Colors.navy)
+                        .lineSpacing(4)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    (Text("Bad habits you want to break or things you want to avoid. These will be your ")
+                        .font(.custom("PatrickHand-Regular", size: 15))
+                        .foregroundStyle(JournalTheme.Colors.completedGray)
+                    + Text("don\u{2019}t dos")
+                        .font(.custom("PatrickHand-Regular", size: 15))
+                        .foregroundStyle(JournalTheme.Colors.negativeRedDark)
+                    + Text(".")
+                        .font(.custom("PatrickHand-Regular", size: 15))
+                        .foregroundStyle(JournalTheme.Colors.completedGray))
+                        .lineSpacing(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .opacity(appeared ? 1 : 0)
                 .offset(y: appeared ? 0 : 15)
 

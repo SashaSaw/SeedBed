@@ -106,14 +106,33 @@ struct HabitDetailView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 8)
 
-                // MARK: - Habit Prompt (prominent display)
-                if !habit.habitPrompt.isEmpty {
-                    VStack(spacing: 8) {
-                        Text("\"\(habit.habitPrompt)\"")
-                            .font(.custom("PatrickHand-Regular", size: 22))
+                // MARK: - Habit Prompt (always visible)
+                if editingPrompt {
+                    // Inline editor
+                    VStack(spacing: 10) {
+                        TextField("", text: $editedPrompt, prompt: Text("e.g. Put on your trainers and step outside").foregroundStyle(JournalTheme.Colors.completedGray))
+                            .font(.custom("PatrickHand-Regular", size: 18))
                             .foregroundStyle(JournalTheme.Colors.inkBlack)
                             .multilineTextAlignment(.center)
-                            .italic()
+                            .textFieldStyle(.plain)
+
+                        HStack(spacing: 16) {
+                            Button("Cancel") {
+                                Feedback.buttonPress()
+                                editingPrompt = false
+                            }
+                            .font(.custom("PatrickHand-Regular", size: 14))
+                            .foregroundStyle(JournalTheme.Colors.completedGray)
+
+                            Button("Save") {
+                                Feedback.buttonPress()
+                                habit.habitPrompt = editedPrompt.trimmingCharacters(in: .whitespaces)
+                                store.updateHabit(habit)
+                                editingPrompt = false
+                            }
+                            .font(.custom("PatrickHand-Regular", size: 14))
+                            .foregroundStyle(JournalTheme.Colors.teal)
+                        }
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.horizontal, 20)
@@ -126,7 +145,111 @@ struct HabitDetailView: View {
                                     .strokeBorder(JournalTheme.Colors.amber.opacity(0.3), lineWidth: 1)
                             )
                     )
+                } else if !habit.habitPrompt.isEmpty {
+                    // Show prompt with pencil edit
+                    Button {
+                        Feedback.selection()
+                        editedPrompt = habit.habitPrompt
+                        editingPrompt = true
+                    } label: {
+                        ZStack(alignment: .topTrailing) {
+                            Text("\"\(habit.habitPrompt)\"")
+                                .font(.custom("PatrickHand-Regular", size: 22))
+                                .foregroundStyle(JournalTheme.Colors.inkBlack)
+                                .multilineTextAlignment(.center)
+                                .italic()
+                                .frame(maxWidth: .infinity)
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 16)
+
+                            Image(systemName: "pencil")
+                                .font(.custom("PatrickHand-Regular", size: 14))
+                                .foregroundStyle(JournalTheme.Colors.amber)
+                                .padding(10)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(JournalTheme.Colors.amber.opacity(0.15))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .strokeBorder(JournalTheme.Colors.amber.opacity(0.3), lineWidth: 1)
+                            )
+                    )
+                } else {
+                    // CTA to add a prompt
+                    Button {
+                        Feedback.selection()
+                        editedPrompt = ""
+                        editingPrompt = true
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "sparkles")
+                                .font(.custom("PatrickHand-Regular", size: 16))
+                                .foregroundStyle(JournalTheme.Colors.amber)
+                            Text("Write a prompt to get you started")
+                                .font(.custom("PatrickHand-Regular", size: 16))
+                                .foregroundStyle(JournalTheme.Colors.amber)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                    }
+                    .buttonStyle(.plain)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(JournalTheme.Colors.amber.opacity(0.05))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .strokeBorder(JournalTheme.Colors.amber.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [6, 4]))
+                            )
+                    )
                 }
+
+                // MARK: - Success Criteria
+                VStack(alignment: .leading, spacing: 10) {
+                    Button {
+                        Feedback.selection()
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showMeasurementEditor.toggle()
+                        }
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: "target")
+                                .font(.custom("PatrickHand-Regular", size: 18))
+                                .foregroundStyle(JournalTheme.Colors.successGreen)
+
+                            Text("Success criteria")
+                                .font(.custom("PatrickHand-Regular", size: 18))
+                                .foregroundStyle(JournalTheme.Colors.inkBlack)
+
+                            Spacer()
+
+                            Text(measurementTypeSummary)
+                                .font(.custom("PatrickHand-Regular", size: 14))
+                                .foregroundStyle(JournalTheme.Colors.completedGray)
+                                .lineLimit(1)
+
+                            Image(systemName: showMeasurementEditor ? "chevron.up" : "chevron.down")
+                                .font(.custom("PatrickHand-Regular", size: 12))
+                                .foregroundStyle(JournalTheme.Colors.completedGray)
+                        }
+                        .padding(14)
+                    }
+                    .buttonStyle(.plain)
+
+                    if showMeasurementEditor {
+                        measurementEditorContent
+                            .padding(.horizontal, 14)
+                            .padding(.bottom, 14)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+                }
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.white.opacity(0.7))
+                        .shadow(color: .black.opacity(0.05), radius: 5, y: 2)
+                )
 
                 // MARK: - Stats Cards
                 HabitStatsSection(habit: habit, store: store)
@@ -140,6 +263,7 @@ struct HabitDetailView: View {
                 }
 
                 // MARK: - Settings
+                if habit.type == .positive {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("SETTINGS")
                         .font(JournalTheme.Fonts.sectionHeader())
@@ -147,29 +271,6 @@ struct HabitDetailView: View {
                         .tracking(2)
 
                     VStack(spacing: 0) {
-                        if habit.type == .negative {
-                            // NEGATIVE HABITS: Only show success metric
-                            settingsRow(
-                                icon: "target",
-                                iconColor: JournalTheme.Colors.successGreen,
-                                label: "Success metric",
-                                value: measurementTypeSummary
-                            ) {
-                                Feedback.selection()
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    showMeasurementEditor.toggle()
-                                }
-                            }
-
-                            if showMeasurementEditor {
-                                measurementEditorContent
-                                    .padding(.horizontal, 14)
-                                    .padding(.bottom, 14)
-                                    .transition(.opacity.combined(with: .move(edge: .top)))
-                            }
-                        } else {
-                            // POSITIVE HABITS: Full settings
-
                             // Priority
                             settingsRow(
                                 icon: "star.fill",
@@ -186,19 +287,19 @@ struct HabitDetailView: View {
                                         habit.frequencyTarget = 1
                                     }
                                 } else {
-                                    // Switching to must-do: if not daily, change to daily
+                                    // Switching to must-do: force daily, close frequency editor
                                     habit.tier = .mustDo
-                                    if habit.frequencyType != .daily {
-                                        habit.frequencyType = .daily
-                                        habit.frequencyTarget = 1
-                                    }
+                                    habit.frequencyType = .daily
+                                    habit.frequencyTarget = 1
+                                    showFrequencyEditor = false
                                 }
                                 store.updateHabit(habit)
                             }
 
+                            // Frequency (only for Nice to Do)
+                            if habit.tier == .niceToDo {
                             Divider().padding(.leading, 48)
 
-                            // Frequency
                             settingsRow(
                                 icon: "repeat",
                                 iconColor: JournalTheme.Colors.teal,
@@ -219,21 +320,13 @@ struct HabitDetailView: View {
                                         set: { newValue in
                                             Feedback.selection()
                                             habit.frequencyType = newValue
-                                            if newValue == .daily {
-                                                // Daily frequency → must be must-do
+                                            if newValue == .weekly && habit.frequencyTarget > 7 {
                                                 habit.frequencyTarget = 1
-                                                habit.tier = .mustDo
-                                            } else if habit.tier == .mustDo {
-                                                // Non-daily AND was must-do → switch to nice-to-do
-                                                habit.tier = .niceToDo
-                                                if newValue == .weekly && habit.frequencyTarget > 7 {
-                                                    habit.frequencyTarget = 1
-                                                }
                                             }
                                             store.updateHabit(habit)
                                         }
                                     )) {
-                                        ForEach(FrequencyType.recurringCases, id: \.self) { freq in
+                                        ForEach(FrequencyType.niceToDoCases, id: \.self) { freq in
                                             Text(freq.displayName).tag(freq)
                                         }
                                     }
@@ -267,6 +360,7 @@ struct HabitDetailView: View {
                                 .padding(.bottom, 14)
                                 .transition(.opacity.combined(with: .move(edge: .top)))
                             }
+                            } // end frequency (niceToDo only)
 
                             Divider().padding(.leading, 48)
 
@@ -288,6 +382,9 @@ struct HabitDetailView: View {
                                     set: { newValue in
                                         Feedback.selection()
                                         habit.notificationsEnabled = newValue
+                                        if !newValue {
+                                            showTimeSlots = false
+                                        }
                                         store.updateHabit(habit)
                                     }
                                 ))
@@ -296,9 +393,10 @@ struct HabitDetailView: View {
                             }
                             .padding(14)
 
+                            // Time of Day — only when reminders are on
+                            if habit.notificationsEnabled {
                             Divider().padding(.leading, 48)
 
-                            // Time of Day — directly under reminders
                             settingsRow(
                                 icon: "clock.fill",
                                 iconColor: JournalTheme.Colors.navy,
@@ -324,6 +422,7 @@ struct HabitDetailView: View {
                                 .padding(.bottom, 14)
                                 .transition(.opacity.combined(with: .move(edge: .top)))
                             }
+                            } // end time of day (reminders on only)
 
                             Divider().padding(.leading, 48)
 
@@ -353,73 +452,13 @@ struct HabitDetailView: View {
                                 .tint(JournalTheme.Colors.teal)
                             }
                             .padding(14)
-
-                            Divider().padding(.leading, 48)
-
-                            // Habit prompt
-                            if editingPrompt {
-                                HStack(spacing: 12) {
-                                    Image(systemName: "sparkles")
-                                        .font(.custom("PatrickHand-Regular", size: 14))
-                                        .foregroundStyle(JournalTheme.Colors.amber)
-                                        .frame(width: 24)
-
-                                    TextField("e.g. Put on your trainers and step outside", text: $editedPrompt)
-                                        .font(.custom("PatrickHand-Regular", size: 14))
-                                        .foregroundStyle(JournalTheme.Colors.inkBlack)
-                                        .textFieldStyle(.plain)
-
-                                    Button("Save") {
-                                        Feedback.buttonPress()
-                                        habit.habitPrompt = editedPrompt.trimmingCharacters(in: .whitespaces)
-                                        store.updateHabit(habit)
-                                        editingPrompt = false
-                                    }
-                                    .font(.custom("PatrickHand-Regular", size: 14))
-                                    .foregroundStyle(JournalTheme.Colors.teal)
-                                }
-                                .padding(14)
-                            } else {
-                                settingsRow(
-                                    icon: "sparkles",
-                                    iconColor: JournalTheme.Colors.amber,
-                                    label: "Habit prompt",
-                                    value: habit.habitPrompt.isEmpty ? "Not set" : habit.habitPrompt
-                                ) {
-                                    Feedback.selection()
-                                    editedPrompt = habit.habitPrompt
-                                    editingPrompt = true
-                                }
-                            }
-
-                            Divider().padding(.leading, 48)
-
-                            // Success metric
-                            settingsRow(
-                                icon: "target",
-                                iconColor: JournalTheme.Colors.successGreen,
-                                label: "Success metric",
-                                value: measurementTypeSummary
-                            ) {
-                                Feedback.selection()
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    showMeasurementEditor.toggle()
-                                }
-                            }
-
-                            if showMeasurementEditor {
-                                measurementEditorContent
-                                    .padding(.horizontal, 14)
-                                    .padding(.bottom, 14)
-                                    .transition(.opacity.combined(with: .move(edge: .top)))
-                            }
-                        }
                     }
                     .background(
                         RoundedRectangle(cornerRadius: 12)
                             .fill(Color.white.opacity(0.7))
                             .shadow(color: .black.opacity(0.05), radius: 5, y: 2)
                     )
+                }
                 }
 
                 // MARK: - Actions
@@ -500,7 +539,7 @@ struct HabitDetailView: View {
     /// Available measurement types based on authorization status
     private var availableMeasurementTypes: [MeasurementType] {
         var types: [MeasurementType] = [.manual]
-        if healthKitManager.isAuthorized || healthKitManager.isAvailable {
+        if healthKitManager.isAuthorized {
             types.append(.healthKit)
         }
         if screenTimeManager.isAuthorized {

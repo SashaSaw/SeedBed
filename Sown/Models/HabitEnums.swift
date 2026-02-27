@@ -105,6 +105,11 @@ enum FrequencyType: String, Codable, CaseIterable, Sendable {
     static var recurringCases: [FrequencyType] {
         [.daily, .weekly, .monthly]
     }
+
+    /// Cases for nice-to-do habits (weekly/monthly only)
+    static var niceToDoCases: [FrequencyType] {
+        [.weekly, .monthly]
+    }
 }
 
 /// Represents the type of HealthKit metric that can be linked to a habit

@@ -27,6 +27,9 @@ struct AddDontDoView: View {
     @State private var familySelection = FamilyActivitySelection()
     @State private var screenTimeManager = ScreenTimeManager.shared
 
+    @AppStorage("hasSeenIntegrationTutorial") private var hasSeenIntegrationTutorial = false
+    @State private var showIntegrationTutorial = false
+
     @FocusState private var nameFieldFocused: Bool
 
     private var hasName: Bool { !name.trimmingCharacters(in: .whitespaces).isEmpty }
@@ -101,7 +104,23 @@ struct AddDontDoView: View {
                 }
             }
         }
-        .onAppear { nameFieldFocused = true }
+        .onAppear {
+            nameFieldFocused = true
+            if !hasSeenIntegrationTutorial {
+                showIntegrationTutorial = true
+            }
+        }
+        .overlay {
+            if showIntegrationTutorial {
+                IntegrationTutorialOverlay {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        hasSeenIntegrationTutorial = true
+                        showIntegrationTutorial = false
+                    }
+                }
+                .transition(.opacity)
+            }
+        }
         .familyActivityPicker(isPresented: $showingAppPicker, selection: $familySelection)
         .onChange(of: familySelection) { _, newSelection in
             // Take only the first app token

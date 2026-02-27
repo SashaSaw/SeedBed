@@ -65,9 +65,6 @@ struct SettingsView: View {
                     // Screen Time integration
                     ScreenTimeSettingsCard()
 
-                    // Schedule section (wake/bed times)
-                    scheduleCard
-
                     // Sound Effects toggle
                     HStack {
                         Image(systemName: soundEffectsEnabled ? "speaker.wave.2" : "speaker.slash")
@@ -302,95 +299,6 @@ struct SettingsView: View {
             RoundedRectangle(cornerRadius: 12)
                 .strokeBorder(JournalTheme.Colors.lineLight, lineWidth: 1)
         )
-    }
-
-    // MARK: - Schedule Card
-
-    private var scheduleCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Image(systemName: "clock")
-                    .font(.custom("PatrickHand-Regular", size: 18))
-                    .foregroundStyle(JournalTheme.Colors.teal)
-
-                Text("My Schedule")
-                    .font(.custom("PatrickHand-Regular", size: 17))
-                    .foregroundStyle(JournalTheme.Colors.inkBlack)
-            }
-
-            VStack(spacing: 12) {
-                scheduleRow(label: "I wake up around", time: schedule.wakeTimeString, emoji: "🌅")
-                scheduleRow(label: "I go to bed around", time: schedule.bedTimeString, emoji: "😴")
-            }
-
-            Text("Change your times to adjust reminder schedule.")
-                .font(.custom("PatrickHand-Regular", size: 12))
-                .foregroundStyle(JournalTheme.Colors.completedGray)
-
-            // Time adjustment pickers
-            VStack(spacing: 8) {
-                HStack {
-                    Text("Wake time")
-                        .font(.custom("PatrickHand-Regular", size: 14))
-                        .foregroundStyle(JournalTheme.Colors.inkBlack)
-                    Spacer()
-                    DatePicker("", selection: Binding(
-                        get: { schedule.wakeTimeDate },
-                        set: { newDate in
-                            let comps = Calendar.current.dateComponents([.hour, .minute], from: newDate)
-                            schedule.wakeTimeMinutes = (comps.hour ?? 7) * 60 + (comps.minute ?? 0)
-                        }
-                    ), displayedComponents: .hourAndMinute)
-                    .datePickerStyle(.compact)
-                    .labelsHidden()
-                    .tint(JournalTheme.Colors.navy)
-                    .environment(\.colorScheme, .light)
-                    .fixedSize()
-                }
-
-                HStack {
-                    Text("Bed time")
-                        .font(.custom("PatrickHand-Regular", size: 14))
-                        .foregroundStyle(JournalTheme.Colors.inkBlack)
-                    Spacer()
-                    DatePicker("", selection: Binding(
-                        get: { schedule.bedTimeDate },
-                        set: { newDate in
-                            let comps = Calendar.current.dateComponents([.hour, .minute], from: newDate)
-                            schedule.bedTimeMinutes = (comps.hour ?? 23) * 60 + (comps.minute ?? 0)
-                        }
-                    ), displayedComponents: .hourAndMinute)
-                    .datePickerStyle(.compact)
-                    .labelsHidden()
-                    .tint(JournalTheme.Colors.navy)
-                    .environment(\.colorScheme, .light)
-                    .fixedSize()
-                }
-            }
-        }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(JournalTheme.Colors.paperLight)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(JournalTheme.Colors.lineLight, lineWidth: 1)
-        )
-    }
-
-    private func scheduleRow(label: String, time: String, emoji: String) -> some View {
-        HStack {
-            Text(emoji)
-                .font(.custom("PatrickHand-Regular", size: 14))
-            Text(label)
-                .font(.custom("PatrickHand-Regular", size: 14))
-                .foregroundStyle(JournalTheme.Colors.inkBlack)
-            Spacer()
-            Text(time)
-                .font(.system(size: 14, weight: .medium, design: .monospaced))
-                .foregroundStyle(JournalTheme.Colors.amber)
-        }
     }
 
     // MARK: - iCloud Backup Card

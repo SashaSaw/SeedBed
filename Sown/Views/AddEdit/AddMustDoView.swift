@@ -46,6 +46,9 @@ struct AddMustDoView: View {
     @State private var showConfirmation = false
     @State private var addedHabitName = ""
 
+    @AppStorage("hasSeenIntegrationTutorial") private var hasSeenIntegrationTutorial = false
+    @State private var showIntegrationTutorial = false
+
     @FocusState private var nameFieldFocused: Bool
 
     private var hasName: Bool { !name.trimmingCharacters(in: .whitespaces).isEmpty }
@@ -118,7 +121,23 @@ struct AddMustDoView: View {
                 }
             }
         }
-        .onAppear { nameFieldFocused = true }
+        .onAppear {
+            nameFieldFocused = true
+            if !hasSeenIntegrationTutorial {
+                showIntegrationTutorial = true
+            }
+        }
+        .overlay {
+            if showIntegrationTutorial {
+                IntegrationTutorialOverlay {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        hasSeenIntegrationTutorial = true
+                        showIntegrationTutorial = false
+                    }
+                }
+                .transition(.opacity)
+            }
+        }
     }
 
     // MARK: - Step 1: Header & Name

@@ -335,13 +335,13 @@ struct AddDontDoView: View {
                         }
                         .buttonStyle(.plain)
 
-                        Text("\(screenTimeTargetMinutes) min")
+                        Text(formatScreenTimeMinutes(screenTimeTargetMinutes))
                             .font(.system(size: 16, weight: .medium, design: .monospaced))
                             .foregroundStyle(JournalTheme.Colors.inkBlack)
-                            .frame(width: 70)
+                            .frame(width: 80)
 
                         Button {
-                            if screenTimeTargetMinutes < 120 {
+                            if screenTimeTargetMinutes < 300 {
                                 screenTimeTargetMinutes += 5
                             }
                         } label: {

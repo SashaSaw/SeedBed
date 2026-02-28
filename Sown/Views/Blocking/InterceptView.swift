@@ -157,6 +157,7 @@ struct InterceptView: View {
             // Choice 2: Disciplined (positive)
             Button {
                 recordRightChoice()
+                cacheSuggestion()
                 withAnimation(.easeInOut(duration: 0.25)) {
                     screen = .habits
                 }
@@ -281,6 +282,7 @@ struct InterceptView: View {
                     // Right path escape hatch - styled as a proper button
                     Button {
                         recordRightChoice()
+                        cacheSuggestion()
                         withAnimation(.easeInOut(duration: 0.25)) {
                             screen = .habits
                         }
@@ -361,6 +363,7 @@ struct InterceptView: View {
                 countdownTimer?.invalidate()
                 countdownTimer = nil
                 recordRightChoice()
+                cacheSuggestion()
                 withAnimation(.easeInOut(duration: 0.25)) {
                     screen = .habits
                 }
@@ -426,26 +429,59 @@ struct InterceptView: View {
     // MARK: - Screen 2b: Habits
 
     @State private var showingFocusMode: Habit? = nil
+    @State private var cachedSuggestion: Habit? = nil
 
     private var habitsScreen: some View {
         ScrollView {
             VStack(spacing: 20) {
-                // Motivation banner
-                motivationBanner
+                // Simplified motivation banner
+                simplifiedMotivationBanner
 
-                // Must Do section
-                mustDoSection
+                // Single focused suggestion
+                if let suggestion = cachedSuggestion {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Why don't you do this instead?")
+                            .font(.custom("PatrickHand-Regular", size: 18))
+                            .foregroundStyle(JournalTheme.Colors.inkBlack)
+                            .padding(.horizontal, contentPadding)
 
-                // Nice-to-do / hobby section with prompts
-                hobbySection
+                        if suggestion.isTask {
+                            InterceptTaskRow(
+                                task: suggestion,
+                                lineHeight: lineHeight,
+                                onComplete: { store.setCompletion(for: suggestion, completed: true, on: selectedDate) }
+                            )
+                        } else {
+                            InterceptHabitRow(
+                                habit: suggestion,
+                                lineHeight: lineHeight,
+                                showPrompt: !suggestion.habitPrompt.isEmpty,
+                                onTap: { showingFocusMode = suggestion },
+                                onComplete: { store.setCompletion(for: suggestion, completed: true, on: selectedDate) }
+                            )
+                        }
+                    }
+                } else {
+                    // All done state
+                    HStack {
+                        Text("🔥 All done! Your streak is safe.")
+                            .font(.custom("PatrickHand-Regular", size: 16))
+                            .foregroundStyle(JournalTheme.Colors.successGreen)
+                        Spacer()
+                    }
+                    .padding(16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(JournalTheme.Colors.successGreen.opacity(0.12))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .strokeBorder(JournalTheme.Colors.successGreen.opacity(0.2), lineWidth: 1)
+                            )
+                    )
+                    .padding(.horizontal, contentPadding)
+                }
 
-                // Today's tasks section
-                tasksSection
-
-                // Done section
-                doneSection
-
-                // Continue to Today view button
+                // Continue to Sown button
                 Button {
                     Feedback.selection()
                     dismiss()
@@ -501,48 +537,29 @@ struct InterceptView: View {
         )
     }
 
-    // MARK: - Motivation Banner
+    // MARK: - Simplified Motivation Banner
 
-    private var motivationBanner: some View {
-        let undoneCount = undoneHabitCount + store.todayVisibleTasks.count
+    private var simplifiedMotivationBanner: some View {
         let streak = store.currentGoodDayStreak()
-        let allDone = store.isGoodDay(for: selectedDate)
 
         return VStack(alignment: .leading, spacing: 6) {
-            if allDone {
-                HStack {
-                    Text("🔥 All done! Your streak is safe.")
-                        .font(.custom("PatrickHand-Regular", size: 16))
-                        .foregroundStyle(JournalTheme.Colors.successGreen)
-                    Spacer()
-                }
-            } else {
-                HStack {
-                    Text("You chose to be the person you promised.")
-                        .font(.custom("PatrickHand-Regular", size: 16))
-                        .foregroundStyle(JournalTheme.Colors.successGreen)
-                    Spacer()
-                }
+            HStack {
+                Text("You chose to be the person you promised.")
+                    .font(.custom("PatrickHand-Regular", size: 16))
+                    .foregroundStyle(JournalTheme.Colors.successGreen)
+                Spacer()
+            }
 
-                if undoneCount > 0 {
-                    Text("You have \(undoneCount) thing\(undoneCount == 1 ? "" : "s") to do — let's go.")
-                        .font(.custom("PatrickHand-Regular", size: 13))
-                        .foregroundStyle(JournalTheme.Colors.inkBlack.opacity(0.7))
-                }
-
-                if streak > 0 {
-                    Text("Keep your \(streak)-day streak alive 🔥")
-                        .font(.custom("PatrickHand-Regular", size: 13))
-                        .foregroundStyle(JournalTheme.Colors.inkBlack.opacity(0.5))
-                }
+            if streak > 0 {
+                Text("Keep your \(streak)-day streak alive 🔥")
+                    .font(.custom("PatrickHand-Regular", size: 13))
+                    .foregroundStyle(JournalTheme.Colors.inkBlack.opacity(0.5))
             }
         }
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(allDone
-                    ? JournalTheme.Colors.successGreen.opacity(0.12)
-                    : JournalTheme.Colors.successGreen.opacity(0.06))
+                .fill(JournalTheme.Colors.successGreen.opacity(0.06))
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
                         .strokeBorder(JournalTheme.Colors.successGreen.opacity(0.2), lineWidth: 1)
@@ -551,152 +568,60 @@ struct InterceptView: View {
         .padding(.horizontal, contentPadding)
     }
 
-    // MARK: - Must Do Section
+    // MARK: - Suggestion Algorithm
 
-    @ViewBuilder
-    private var mustDoSection: some View {
-        let undoneStandalone = store.standalonePositiveMustDoHabits.filter { !$0.isCompleted(for: selectedDate) }
-        let undoneGrouped = store.mustDoGroups.filter { !$0.isSatisfied(habits: store.habits, for: selectedDate) }
-
-        if !undoneStandalone.isEmpty || !undoneGrouped.isEmpty {
-            VStack(spacing: 0) {
-                sectionHeader("★ MUST DO", color: JournalTheme.Colors.amber)
-
-                ForEach(undoneStandalone) { habit in
-                    InterceptHabitRow(
-                        habit: habit,
-                        lineHeight: lineHeight,
-                        onTap: { showingFocusMode = habit },
-                        onComplete: { store.setCompletion(for: habit, completed: true, on: selectedDate) }
-                    )
-                }
-
-                ForEach(undoneGrouped) { group in
-                    let groupHabits = store.habits(for: group).filter { !$0.isCompleted(for: selectedDate) }
-                    ForEach(groupHabits) { habit in
-                        InterceptHabitRow(
-                            habit: habit,
-                            lineHeight: lineHeight,
-                            groupName: group.name,
-                            onTap: { showingFocusMode = habit },
-                            onComplete: { store.setCompletion(for: habit, completed: true, on: selectedDate) }
-                        )
-                    }
-                }
-            }
+    /// Returns the sort priority for a TimeSlot raw value (lower = earlier in day)
+    private func timeSlotPriority(_ rawValue: String) -> Int {
+        switch rawValue {
+        case TimeSlot.afterWake.rawValue: return 0
+        case TimeSlot.morning.rawValue: return 1
+        case TimeSlot.duringTheDay.rawValue: return 2
+        case TimeSlot.evening.rawValue: return 3
+        case TimeSlot.beforeBed.rawValue: return 4
+        default: return 5
         }
     }
 
-    // MARK: - Hobby / Nice-to-do Section (with prompts)
+    /// Returns the earliest time slot index for a habit (lowest = earliest in day)
+    private func earliestTimeSlotPriority(for habit: Habit) -> Int {
+        guard !habit.scheduleTimes.isEmpty else { return Int.max }
+        return habit.scheduleTimes.map { timeSlotPriority($0) }.min() ?? Int.max
+    }
 
-    @ViewBuilder
-    private var hobbySection: some View {
+    /// Sorts habits by earliest time slot, then randomly picks one from the best group
+    private func pickByTimeOfDay(from habits: [Habit]) -> Habit? {
+        guard !habits.isEmpty else { return nil }
+        let sorted = habits.sorted { earliestTimeSlotPriority(for: $0) < earliestTimeSlotPriority(for: $1) }
+        let bestPriority = earliestTimeSlotPriority(for: sorted[0])
+        let bestGroup = sorted.filter { earliestTimeSlotPriority(for: $0) == bestPriority }
+        return bestGroup.randomElement()
+    }
+
+    /// Computes the single highest-priority suggestion to show on the intercept habits screen
+    private var suggestedItem: Habit? {
+        // Tier 1: Uncompleted one-off tasks
+        let tasks = store.todayVisibleTasks
+        if let task = tasks.first { return task }
+
+        // Tier 2: Uncompleted standalone must-do habits
+        let undoneMustDo = store.standalonePositiveMustDoHabits.filter { !$0.isCompleted(for: selectedDate) }
+        if let pick = pickByTimeOfDay(from: undoneMustDo) { return pick }
+
+        // Tier 3: Habits from unsatisfied must-do groups
+        let undoneGroups = store.mustDoGroups.filter { !$0.isSatisfied(habits: store.habits, for: selectedDate) }
+        let groupHabits = undoneGroups.flatMap { store.habits(for: $0).filter { !$0.isCompleted(for: selectedDate) } }
+        if let pick = pickByTimeOfDay(from: groupHabits) { return pick }
+
+        // Tier 4: Nice-to-do habits
         let niceHabits = store.niceToDoHabits.filter { $0.isActive && !$0.isTask && !$0.isCompleted(for: selectedDate) }
+        if let pick = pickByTimeOfDay(from: niceHabits) { return pick }
 
-        if !niceHabits.isEmpty {
-            VStack(spacing: 0) {
-                sectionHeader("◇ NICE TO DO", color: JournalTheme.Colors.teal)
-
-                ForEach(niceHabits) { habit in
-                    InterceptHabitRow(
-                        habit: habit,
-                        lineHeight: lineHeight,
-                        showPrompt: true,
-                        onTap: { showingFocusMode = habit },
-                        onComplete: { store.setCompletion(for: habit, completed: true, on: selectedDate) }
-                    )
-                }
-            }
-        }
+        return nil
     }
 
-    // MARK: - Tasks Section
-
-    @ViewBuilder
-    private var tasksSection: some View {
-        if !store.todayVisibleTasks.isEmpty {
-            VStack(spacing: 0) {
-                sectionHeader("◇ TODAY'S TASKS", color: JournalTheme.Colors.teal)
-
-                ForEach(store.todayVisibleTasks) { task in
-                    InterceptTaskRow(
-                        task: task,
-                        lineHeight: lineHeight,
-                        onComplete: { store.setCompletion(for: task, completed: true, on: selectedDate) }
-                    )
-                }
-            }
-        }
-    }
-
-    // MARK: - Done Section
-
-    @ViewBuilder
-    private var doneSection: some View {
-        let completedMustDo = store.standalonePositiveMustDoHabits.filter { $0.isCompleted(for: selectedDate) }
-        let completedTasks = store.todayCompletedTasks
-
-        if !completedMustDo.isEmpty || !completedTasks.isEmpty {
-            VStack(spacing: 0) {
-                sectionHeader("DONE ✓", color: JournalTheme.Colors.completedGray)
-
-                ForEach(completedMustDo) { habit in
-                    HStack(spacing: 12) {
-                        Image(systemName: "checkmark")
-                            .font(.custom("PatrickHand-Regular", size: 12))
-                            .foregroundStyle(JournalTheme.Colors.successGreen)
-
-                        Text(habit.name)
-                            .font(JournalTheme.Fonts.habitName())
-                            .foregroundStyle(JournalTheme.Colors.completedGray)
-                            .strikethrough(color: JournalTheme.Colors.completedGray)
-
-                        Spacer()
-                    }
-                    .padding(.horizontal, contentPadding)
-                    .frame(height: lineHeight)
-                    .opacity(0.5)
-                }
-
-                ForEach(completedTasks) { task in
-                    HStack(spacing: 12) {
-                        Image(systemName: "checkmark")
-                            .font(.custom("PatrickHand-Regular", size: 12))
-                            .foregroundStyle(JournalTheme.Colors.teal)
-
-                        Text(task.name)
-                            .font(JournalTheme.Fonts.habitName())
-                            .foregroundStyle(JournalTheme.Colors.completedGray)
-                            .strikethrough(color: JournalTheme.Colors.completedGray)
-
-                        Spacer()
-                    }
-                    .padding(.horizontal, contentPadding)
-                    .frame(height: lineHeight)
-                    .opacity(0.5)
-                }
-            }
-        }
-    }
-
-    // MARK: - Helpers
-
-    private func sectionHeader(_ title: String, color: Color) -> some View {
-        HStack(spacing: 8) {
-            Text(title)
-                .font(JournalTheme.Fonts.sectionHeader())
-                .foregroundStyle(color)
-                .tracking(2)
-            Spacer()
-        }
-        .padding(.horizontal, contentPadding)
-        .padding(.bottom, 4)
-    }
-
-    private var undoneHabitCount: Int {
-        let undoneStandalone = store.standalonePositiveMustDoHabits.filter { !$0.isCompleted(for: selectedDate) }.count
-        let undoneGroups = store.mustDoGroups.filter { !$0.isSatisfied(habits: store.habits, for: selectedDate) }.count
-        return undoneStandalone + undoneGroups
+    /// Computes and caches the suggestion so it doesn't change on re-render
+    private func cacheSuggestion() {
+        cachedSuggestion = suggestedItem
     }
 
     /// Mark scroll-related negative habits as slipped for today (completed = true means they failed).

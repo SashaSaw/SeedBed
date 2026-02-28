@@ -60,7 +60,7 @@ struct MorningTasksView: View {
                 .font(.custom("PatrickHand-Regular", size: 28))
                 .foregroundStyle(JournalTheme.Colors.navy)
 
-            Text("What tasks have you got to get done today?")
+            Text("Jot down your to-dos before you forget!")
                 .font(.custom("PatrickHand-Regular", size: 15))
                 .foregroundStyle(JournalTheme.Colors.completedGray)
                 .lineSpacing(2)

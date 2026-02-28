@@ -2,6 +2,16 @@ import SwiftUI
 import FamilyControls
 import ManagedSettings
 
+/// Formats minutes into readable duration: "15 min" or "2h 30m"
+func formatScreenTimeMinutes(_ minutes: Int) -> String {
+    if minutes < 60 {
+        return "\(minutes) min"
+    }
+    let h = minutes / 60
+    let m = minutes % 60
+    return m == 0 ? "\(h)h 0m" : "\(h)h \(m)m"
+}
+
 /// UI section for linking a habit to a Screen Time app with a usage target
 struct ScreenTimeHabitSection: View {
     @Binding var appToken: ApplicationToken?
@@ -83,13 +93,13 @@ struct ScreenTimeHabitSection: View {
                             }
                             .buttonStyle(.plain)
 
-                            Text("\(targetMinutes) min")
+                            Text(formatScreenTimeMinutes(targetMinutes))
                                 .font(.system(size: 16, weight: .medium, design: .monospaced))
                                 .foregroundStyle(JournalTheme.Colors.inkBlack)
-                                .frame(width: 70)
+                                .frame(width: 80)
 
                             Button {
-                                if targetMinutes < 120 {
+                                if targetMinutes < 300 {
                                     targetMinutes += 5
                                 }
                             } label: {
@@ -154,7 +164,7 @@ struct ScreenTimeProgressBadge: View {
         HStack(spacing: 3) {
             Image(systemName: "hourglass")
                 .font(.system(size: 9))
-            Text("\(targetMinutes) min")
+            Text(formatScreenTimeMinutes(targetMinutes))
                 .font(.system(size: 10, weight: .medium, design: .monospaced))
         }
         .foregroundStyle(JournalTheme.Colors.purple)

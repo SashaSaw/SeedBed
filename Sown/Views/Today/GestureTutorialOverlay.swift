@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// A 5-step animated tutorial overlay teaching swipe gestures and group creation
+/// A 6-step animated tutorial overlay teaching swipe gestures, tap-to-edit, and group creation
 struct GestureTutorialOverlay: View {
     let onDismiss: () -> Void
 
@@ -18,8 +18,10 @@ struct GestureTutorialOverlay: View {
     @State private var createButtonPressed = false
     @State private var handOffset: CGSize = .zero
     @State private var handOpacity: Double = 1.0
+    @State private var tapEditHighlight: Bool = false
+    @State private var showEditSheet: Bool = false
 
-    private let totalSteps = 5
+    private let totalSteps = 6
 
     var body: some View {
         ZStack {
@@ -46,10 +48,11 @@ struct GestureTutorialOverlay: View {
                 ZStack {
                     switch tutorialStep {
                     case 0: swipeRightDemo
-                    case 1: swipeLeftDemo
-                    case 2: longPressDemo
-                    case 3: selectHabitsDemo
-                    case 4: createGroupDemo
+                    case 1: tapToEditDemo
+                    case 2: swipeLeftDemo
+                    case 3: longPressDemo
+                    case 4: selectHabitsDemo
+                    case 5: createGroupDemo
                     default: EmptyView()
                     }
                 }
@@ -100,10 +103,11 @@ struct GestureTutorialOverlay: View {
     private var stepTitle: String {
         switch tutorialStep {
         case 0: return "Swipe to cross off"
-        case 1: return "Swipe left to archive"
-        case 2: return "Long-press to start a group"
-        case 3: return "Select habits for your group"
-        case 4: return "Tap Create Group"
+        case 1: return "Tap to see details"
+        case 2: return "Swipe left to archive"
+        case 3: return "Long-press to start a group"
+        case 4: return "Select habits for your group"
+        case 5: return "Tap Create Group"
         default: return ""
         }
     }
@@ -131,7 +135,56 @@ struct GestureTutorialOverlay: View {
         }
     }
 
-    // MARK: - Step 2: Swipe Left to Archive
+    // MARK: - Step 2: Tap to See Details
+    // Hand taps the row, row highlights, a mock detail card peeks up from the bottom.
+
+    private var tapToEditDemo: some View {
+        ZStack {
+            VStack(spacing: 0) {
+                mockHabitRow(
+                    emoji: "💧",
+                    name: "Drink enough water",
+                    completed: false,
+                    strikethroughProgress: 0
+                )
+                .scaleEffect(tapEditHighlight ? 0.97 : 1.0)
+                .brightness(tapEditHighlight ? -0.03 : 0)
+
+                Spacer().frame(height: 16)
+
+                // Mock detail card that peeks up
+                if showEditSheet {
+                    VStack(spacing: 6) {
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(JournalTheme.Colors.completedGray.opacity(0.4))
+                            .frame(width: 36, height: 4)
+                            .padding(.top, 8)
+
+                        Text("Edit habit")
+                            .font(.custom("PatrickHand-Regular", size: 16))
+                            .foregroundStyle(JournalTheme.Colors.inkBlack)
+                            .padding(.bottom, 8)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(JournalTheme.Colors.paperLight)
+                            .shadow(color: .black.opacity(0.08), radius: 8, y: -2)
+                    )
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
+
+            // Hand indicator
+            Image(systemName: "hand.point.up.fill")
+                .font(.system(size: 28))
+                .foregroundStyle(JournalTheme.Colors.inkBlue.opacity(0.7))
+                .offset(handOffset)
+                .opacity(handOpacity)
+        }
+    }
+
+    // MARK: - Step 3: Swipe Left to Archive
 
     private var swipeLeftDemo: some View {
         ZStack {
@@ -160,7 +213,7 @@ struct GestureTutorialOverlay: View {
         }
     }
 
-    // MARK: - Step 3: Long Press Demo
+    // MARK: - Step 4: Long Press Demo
     // Long-pressing a habit enters group selection mode.
     // The completion circle is replaced by a rounded-rect checkbox on the left.
 
@@ -189,7 +242,7 @@ struct GestureTutorialOverlay: View {
         }
     }
 
-    // MARK: - Step 4: Select Habits Demo
+    // MARK: - Step 5: Select Habits Demo
     // All rows show the rounded-rect checkbox. Tapping selects them one by one.
 
     private var selectHabitsDemo: some View {
@@ -209,7 +262,7 @@ struct GestureTutorialOverlay: View {
         }
     }
 
-    // MARK: - Step 5: Create Group Demo
+    // MARK: - Step 6: Create Group Demo
 
     private var createGroupDemo: some View {
         VStack(spacing: 12) {
@@ -377,15 +430,18 @@ struct GestureTutorialOverlay: View {
         createButtonPressed = false
         handOffset = .zero
         handOpacity = 1.0
+        tapEditHighlight = false
+        showEditSheet = false
     }
 
     private func startAnimation() {
         switch tutorialStep {
         case 0: animateTapComplete()
-        case 1: animateSwipeLeft()
-        case 2: animateLongPress()
-        case 3: animateSelectHabits()
-        case 4: animateCreateGroup()
+        case 1: animateTapToEdit()
+        case 2: animateSwipeLeft()
+        case 3: animateLongPress()
+        case 4: animateSelectHabits()
+        case 5: animateCreateGroup()
         default: break
         }
     }
@@ -425,6 +481,49 @@ struct GestureTutorialOverlay: View {
         }
     }
 
+    private func animateTapToEdit() {
+        // Hand starts above the row, moves down to tap it
+        handOffset = CGSize(width: 0, height: -40)
+        handOpacity = 1.0
+
+        // Hand moves to center of row
+        withAnimation(.easeInOut(duration: 0.5).delay(0.3)) {
+            handOffset = CGSize(width: 0, height: 0)
+        }
+        // Tap effect — highlight the row
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
+            withAnimation(.easeInOut(duration: 0.12)) {
+                tapEditHighlight = true
+            }
+        }
+        // Release tap
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) {
+            withAnimation(.easeInOut(duration: 0.12)) {
+                tapEditHighlight = false
+            }
+            // Show the mock detail card peeking up
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                showEditSheet = true
+            }
+            // Fade hand out
+            withAnimation(.easeOut(duration: 0.3)) {
+                handOpacity = 0
+            }
+        }
+        // Reset and loop
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            guard tutorialStep == 1 else { return }
+            withAnimation(.easeInOut(duration: 0.3)) {
+                showEditSheet = false
+                tapEditHighlight = false
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                guard tutorialStep == 1 else { return }
+                animateTapToEdit()
+            }
+        }
+    }
+
     private func animateSwipeLeft() {
         // Start hand at right edge, sweep left
         handOffset = CGSize(width: 130, height: 0)
@@ -440,14 +539,14 @@ struct GestureTutorialOverlay: View {
         }
         // Reset and loop
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-            guard tutorialStep == 1 else { return }
+            guard tutorialStep == 2 else { return }
             withAnimation(.easeInOut(duration: 0.4)) {
                 swipeOffset = 0
                 showArchiveBackground = false
                 handOpacity = 0
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                guard tutorialStep == 1 else { return }
+                guard tutorialStep == 2 else { return }
                 animateSwipeLeft()
             }
         }
@@ -474,14 +573,14 @@ struct GestureTutorialOverlay: View {
         }
         // Reset and loop
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.8) {
-            guard tutorialStep == 2 else { return }
+            guard tutorialStep == 3 else { return }
             withAnimation(.easeInOut(duration: 0.3)) {
                 showCheckboxes = [false, false, false]
                 showChecks = [false, false, false]
                 longPressScale = 1.0
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                guard tutorialStep == 2 else { return }
+                guard tutorialStep == 3 else { return }
                 animateLongPress()
             }
         }

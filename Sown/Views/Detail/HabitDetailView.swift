@@ -564,7 +564,7 @@ struct HabitDetailView: View {
             return "Health"
         case .screenTime:
             if let target = habit.screenTimeTarget {
-                return "Screen Time (\(target) min)"
+                return "Screen Time (\(formatScreenTimeMinutes(target)))"
             }
             return "Screen Time"
         }

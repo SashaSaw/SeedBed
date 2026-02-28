@@ -633,6 +633,12 @@ struct TodayContentView: View {
         let currentMinutes = calendar.component(.hour, from: now) * 60 + calendar.component(.minute, from: now)
         guard currentMinutes >= schedule.wakeTimeMinutes else { return }
 
+        // Only show before noon (12:00 PM = 720 minutes)
+        guard currentMinutes < 720 else { return }
+
+        // Only show if no tasks exist yet
+        guard store.todayVisibleTasks.isEmpty else { return }
+
         // Mark as shown and present after a brief delay
         lastMorningPromptDate = todayString
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {

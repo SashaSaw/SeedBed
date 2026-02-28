@@ -253,7 +253,7 @@ extension Habit {
 
         // Check Screen Time
         if isScreenTimeLinked, let target = screenTimeTarget {
-            return "\(target) min"
+            return formatScreenTimeMinutes(target)
         }
 
         // Fall back to manual criteria

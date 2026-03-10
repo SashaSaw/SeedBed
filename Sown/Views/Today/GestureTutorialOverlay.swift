@@ -305,22 +305,12 @@ struct GestureTutorialOverlay: View {
 
     private func mockHabitRow(emoji: String, name: String, completed: Bool, strikethroughProgress: CGFloat) -> some View {
         HStack(spacing: 12) {
-            // Completion indicator — empty circle or filled checkmark
-            ZStack {
-                Circle()
-                    .strokeBorder(
-                        completed ? JournalTheme.Colors.inkBlue : JournalTheme.Colors.inkBlue.opacity(0.4),
-                        lineWidth: 1.5
-                    )
-                    .frame(width: 22, height: 22)
-
-                if completed {
-                    // Pen-style checkmark
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(JournalTheme.Colors.inkBlue)
-                }
-            }
+            // Bullet dot
+            Circle()
+                .fill(completed
+                    ? JournalTheme.Colors.completedGray
+                    : JournalTheme.Colors.inkBlack)
+                .frame(width: 6, height: 6)
 
             // Habit text with strikethrough overlay
             HStack(spacing: 4) {

@@ -1498,6 +1498,7 @@ struct HabitLinedRow: View {
     @State private var isDragging: Bool = false
     @State private var hasPassedThreshold: Bool = false
     @State private var textWidth: CGFloat = 0
+    @State private var rowWidth: CGFloat = 0
 
     // Archive gesture state
     @State private var archiveOffset: CGFloat = 0
@@ -1561,28 +1562,12 @@ struct HabitLinedRow: View {
 
             // Main content
             HStack(spacing: 12) {
-                // Rounded square checkbox — fills with tick when completed
-                RoundedRectangle(cornerRadius: 6)
-                    .strokeBorder(
-                        isVisuallyCompleted
-                            ? JournalTheme.Colors.inkBlue
-                            : JournalTheme.Colors.completedGray,
-                        lineWidth: 1.5
-                    )
-                    .background(
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(isVisuallyCompleted
-                                ? JournalTheme.Colors.inkBlue.opacity(0.1)
-                                : Color.clear)
-                    )
-                    .overlay {
-                        if isVisuallyCompleted {
-                            Image(systemName: "checkmark")
-                                .font(.custom("PatrickHand-Regular", size: 11))
-                                .foregroundStyle(JournalTheme.Colors.inkBlue)
-                        }
-                    }
-                    .frame(width: 20, height: 20)
+                // Bullet dot
+                Circle()
+                    .fill(isVisuallyCompleted
+                        ? JournalTheme.Colors.completedGray
+                        : JournalTheme.Colors.inkBlack)
+                    .frame(width: 6, height: 6)
 
                 // Habit text with strikethrough overlay
                 HStack(spacing: 6) {
@@ -1619,22 +1604,25 @@ struct HabitLinedRow: View {
                         progress: $strikethroughProgress
                     )
                 }
-                // Completion gesture only on text area
-                .contentShape(Rectangle())
-                .gesture(completionGesture(hitboxWidth: textWidth > 0 ? textWidth : 200))
 
                 Spacer()
             }
             .frame(minHeight: 44)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 24)
-            .background(Color.clear)
+            .background(
+                GeometryReader { rowGeometry in
+                    Color.clear
+                        .onAppear { rowWidth = rowGeometry.size.width }
+                        .onChange(of: rowGeometry.size.width) { _, w in rowWidth = w }
+                }
+            )
             .offset(x: archiveOffset)
         }
         .frame(minHeight: 44)
         .contentShape(Rectangle())
-        // Archive gesture on full row (left swipes only)
-        .gesture(archiveGesture())
+        // Unified gesture on full row (right = complete, left = archive)
+        .gesture(unifiedDragGesture())
         .simultaneousGesture(
             LongPressGesture(minimumDuration: 0.5)
                 .onEnded { _ in
@@ -1687,32 +1675,50 @@ struct HabitLinedRow: View {
         }
     }
 
-    // Completion gesture (right swipe) - only on text area
-    private func completionGesture(hitboxWidth: CGFloat) -> some Gesture {
+    // Unified drag gesture — right swipe = complete, left swipe = archive
+    private func unifiedDragGesture() -> some Gesture {
         DragGesture(minimumDistance: 20, coordinateSpace: .local)
             .onChanged { value in
                 let horizontal = abs(value.translation.width)
                 let vertical = abs(value.translation.height)
                 let translation = value.translation.width
 
-                // Only process right swipes that are predominantly horizontal
-                guard horizontal > vertical, translation > 0 else { return }
+                guard horizontal > vertical else { return }
 
-                // Keep swipe sound playing while finger is moving
-                Feedback.startSwiping()
                 isDragging = true
 
-                if isCompleted {
-                    // Already completed - ignore right swipe
-                } else {
-                    // Forward swipe: swipe right to draw the strikethrough
-                    let forwardProgress = translation / hitboxWidth
-                    strikethroughProgress = max(0, min(1, forwardProgress))
+                if translation > 0 {
+                    // Right swipe — completion
+                    // Reset archive state if switching direction
+                    if archiveOffset < 0 {
+                        archiveOffset = 0
+                    }
 
-                    // Check threshold crossing for haptic feedback
-                    let currentlyPastThreshold = strikethroughProgress >= completionThreshold
-                    if currentlyPastThreshold != hasPassedThreshold {
-                        hasPassedThreshold = currentlyPastThreshold
+                    Feedback.startSwiping()
+
+                    if !isCompleted {
+                        let hitbox = rowWidth > 0 ? rowWidth : 300
+                        let forwardProgress = translation / hitbox
+                        strikethroughProgress = max(0, min(1, forwardProgress))
+
+                        let currentlyPastThreshold = strikethroughProgress >= completionThreshold
+                        if currentlyPastThreshold != hasPassedThreshold {
+                            hasPassedThreshold = currentlyPastThreshold
+                            Feedback.thresholdCrossed()
+                        }
+                    }
+                } else {
+                    // Left swipe — archive
+                    // Reset completion progress if switching direction
+                    if strikethroughProgress > 0 && !isCompleted {
+                        strikethroughProgress = 0
+                    }
+
+                    archiveOffset = translation
+
+                    let currentlyPastArchive = abs(translation) >= archiveDistanceThreshold
+                    if currentlyPastArchive != hasPassedArchiveThreshold {
+                        hasPassedArchiveThreshold = currentlyPastArchive
                         Feedback.thresholdCrossed()
                     }
                 }
@@ -1721,82 +1727,41 @@ struct HabitLinedRow: View {
                 isDragging = false
                 let translation = value.translation.width
 
-                // Only handle right swipes
-                guard translation > 0 else {
-                    Feedback.stopSwiping()
-                    return
-                }
-
-                if !isCompleted {
-                    if strikethroughProgress >= completionThreshold {
-                        // Past threshold - complete the habit
-                        withAnimation(JournalTheme.Animations.strikethrough) {
-                            strikethroughProgress = 1.0
+                if translation > 0 {
+                    // Right swipe ended — completion
+                    if !isCompleted {
+                        if strikethroughProgress >= completionThreshold {
+                            withAnimation(JournalTheme.Animations.strikethrough) {
+                                strikethroughProgress = 1.0
+                            }
+                            Feedback.swipeCompleted()
+                            onComplete()
+                            hasPassedThreshold = true
+                        } else {
+                            withAnimation(JournalTheme.Animations.strikethrough) {
+                                strikethroughProgress = 0
+                            }
+                            Feedback.swipeCancelled()
+                            hasPassedThreshold = false
                         }
-                        Feedback.swipeCompleted()
-                        onComplete()
-                        hasPassedThreshold = true
                     } else {
-                        // Didn't reach threshold - rewind to zero
-                        withAnimation(JournalTheme.Animations.strikethrough) {
-                            strikethroughProgress = 0
-                        }
-                        Feedback.swipeCancelled()
-                        hasPassedThreshold = false
+                        Feedback.stopSwiping()
                     }
                 } else {
-                    Feedback.stopSwiping()
-                }
-            }
-    }
-
-    // Archive gesture (left swipe) - on full row
-    private func archiveGesture() -> some Gesture {
-        DragGesture(minimumDistance: 20, coordinateSpace: .local)
-            .onChanged { value in
-                let horizontal = abs(value.translation.width)
-                let vertical = abs(value.translation.height)
-                let translation = value.translation.width
-
-                // Only process left swipes that are predominantly horizontal
-                guard horizontal > vertical, translation < 0 else { return }
-
-                isDragging = true
-                archiveOffset = translation
-
-                // Reset completion progress if we're archiving
-                if strikethroughProgress > 0 && !isCompleted {
-                    strikethroughProgress = 0
-                }
-
-                // Check archive threshold for haptic (using fixed pixel distance)
-                let currentlyPastArchive = abs(translation) >= archiveDistanceThreshold
-                if currentlyPastArchive != hasPassedArchiveThreshold {
-                    hasPassedArchiveThreshold = currentlyPastArchive
-                    Feedback.thresholdCrossed()
-                }
-            }
-            .onEnded { value in
-                isDragging = false
-                let translation = value.translation.width
-
-                // Only handle left swipes
-                guard translation < 0 else { return }
-
-                if abs(translation) >= archiveDistanceThreshold {
-                    // Archive the habit
-                    Feedback.archive()
-                    archiveOffset = 0
-                    withAnimation(.easeOut(duration: 0.25)) {
-                        onArchive()
-                    }
-                } else {
-                    // Snap back
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    // Left swipe ended — archive
+                    if abs(translation) >= archiveDistanceThreshold {
+                        Feedback.archive()
                         archiveOffset = 0
+                        withAnimation(.easeOut(duration: 0.25)) {
+                            onArchive()
+                        }
+                    } else {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            archiveOffset = 0
+                        }
                     }
+                    hasPassedArchiveThreshold = false
                 }
-                hasPassedArchiveThreshold = false
             }
     }
 }
@@ -1848,28 +1813,12 @@ struct NegativeHabitLinedRow: View {
 
             // Main content
             HStack(spacing: 12) {
-                // Slip indicator — rounded square, X mark if slipped
-                RoundedRectangle(cornerRadius: 6)
-                    .strokeBorder(
-                        isCompleted
-                            ? JournalTheme.Colors.negativeRedDark
-                            : JournalTheme.Colors.completedGray,
-                        lineWidth: 1.5
-                    )
-                    .background(
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(isCompleted
-                                ? JournalTheme.Colors.negativeRedDark.opacity(0.12)
-                                : Color.clear)
-                    )
-                    .overlay {
-                        if isCompleted {
-                            Image(systemName: "xmark")
-                                .font(.custom("PatrickHand-Regular", size: 10))
-                                .foregroundStyle(JournalTheme.Colors.negativeRedDark)
-                        }
-                    }
-                    .frame(width: 20, height: 20)
+                // Bullet dot
+                Circle()
+                    .fill(isCompleted
+                        ? JournalTheme.Colors.negativeRedDark
+                        : JournalTheme.Colors.inkBlack)
+                    .frame(width: 6, height: 6)
 
                 // Habit name
                 Text(habit.name)
@@ -2001,7 +1950,7 @@ struct NegativeHabitLinedRow: View {
     }
 }
 
-/// A one-off task row with square checkbox, teal accent, swipe-to-strikethrough, and swipe-left-to-delete
+/// A one-off task row with teal bullet dot, swipe-to-strikethrough, and swipe-left-to-delete
 struct TaskLinedRow: View {
     let habit: Habit
     let isCompleted: Bool
@@ -2015,6 +1964,7 @@ struct TaskLinedRow: View {
     @State private var isDragging: Bool = false
     @State private var hasPassedThreshold: Bool = false
     @State private var textWidth: CGFloat = 0
+    @State private var rowWidth: CGFloat = 0
 
     // Delete gesture state (swipe left)
     @State private var deleteOffset: CGFloat = 0
@@ -2071,24 +2021,12 @@ struct TaskLinedRow: View {
 
             // Main content
             HStack(spacing: 12) {
-                // Square checkbox with rounded corners (teal) — distinguishes tasks from habits
-                RoundedRectangle(cornerRadius: 6)
-                    .strokeBorder(
-                        isVisuallyCompleted ? JournalTheme.Colors.teal : JournalTheme.Colors.completedGray,
-                        lineWidth: 1.5
-                    )
-                    .background(
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(isVisuallyCompleted ? JournalTheme.Colors.teal.opacity(0.15) : Color.clear)
-                    )
-                    .overlay {
-                        if isVisuallyCompleted {
-                            Image(systemName: "checkmark")
-                                .font(.custom("PatrickHand-Regular", size: 11))
-                                .foregroundStyle(JournalTheme.Colors.teal)
-                        }
-                    }
-                    .frame(width: 20, height: 20)
+                // Bullet dot (teal to distinguish tasks)
+                Circle()
+                    .fill(isVisuallyCompleted
+                        ? JournalTheme.Colors.completedGray
+                        : JournalTheme.Colors.teal)
+                    .frame(width: 6, height: 6)
 
                 // Task text with strikethrough overlay
                 HStack(spacing: 6) {
@@ -2116,9 +2054,6 @@ struct TaskLinedRow: View {
                         progress: $strikethroughProgress
                     )
                 }
-                // Completion gesture only on text area
-                .contentShape(Rectangle())
-                .gesture(completionGesture(hitboxWidth: textWidth > 0 ? textWidth : 200))
 
                 Spacer()
 
@@ -2138,13 +2073,19 @@ struct TaskLinedRow: View {
             .frame(minHeight: 44)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 24)
-            .background(Color.clear)
+            .background(
+                GeometryReader { rowGeometry in
+                    Color.clear
+                        .onAppear { rowWidth = rowGeometry.size.width }
+                        .onChange(of: rowGeometry.size.width) { _, w in rowWidth = w }
+                }
+            )
             .offset(x: deleteOffset)
         }
         .frame(minHeight: 44)
         .contentShape(Rectangle())
-        // Delete gesture on full row (left swipes only)
-        .gesture(deleteGesture())
+        // Unified gesture on full row (right = complete, left = delete)
+        .gesture(unifiedDragGesture())
         .onTapGesture {
             // Tap to undo completion
             if isCompleted {
@@ -2192,29 +2133,48 @@ struct TaskLinedRow: View {
         }
     }
 
-    // Completion gesture (right swipe) - only on text area
-    private func completionGesture(hitboxWidth: CGFloat) -> some Gesture {
+    // Unified drag gesture — right swipe = complete, left swipe = delete
+    private func unifiedDragGesture() -> some Gesture {
         DragGesture(minimumDistance: 20, coordinateSpace: .local)
             .onChanged { value in
                 let horizontal = abs(value.translation.width)
                 let vertical = abs(value.translation.height)
                 let translation = value.translation.width
 
-                guard horizontal > vertical, translation > 0 else { return }
+                guard horizontal > vertical else { return }
 
-                // Keep swipe sound playing while finger is moving
-                Feedback.startSwiping()
                 isDragging = true
 
-                if isCompleted {
-                    // Already completed - ignore right swipe
-                } else {
-                    let forwardProgress = translation / hitboxWidth
-                    strikethroughProgress = max(0, min(1, forwardProgress))
+                if translation > 0 {
+                    // Right swipe — completion
+                    if deleteOffset < 0 {
+                        deleteOffset = 0
+                    }
 
-                    let currentlyPastThreshold = strikethroughProgress >= completionThreshold
-                    if currentlyPastThreshold != hasPassedThreshold {
-                        hasPassedThreshold = currentlyPastThreshold
+                    Feedback.startSwiping()
+
+                    if !isCompleted {
+                        let hitbox = rowWidth > 0 ? rowWidth : 300
+                        let forwardProgress = translation / hitbox
+                        strikethroughProgress = max(0, min(1, forwardProgress))
+
+                        let currentlyPastThreshold = strikethroughProgress >= completionThreshold
+                        if currentlyPastThreshold != hasPassedThreshold {
+                            hasPassedThreshold = currentlyPastThreshold
+                            Feedback.thresholdCrossed()
+                        }
+                    }
+                } else {
+                    // Left swipe — delete
+                    if strikethroughProgress > 0 && !isCompleted {
+                        strikethroughProgress = 0
+                    }
+
+                    deleteOffset = translation
+
+                    let currentlyPastDelete = abs(translation) >= deleteDistanceThreshold
+                    if currentlyPastDelete != hasPassedDeleteThreshold {
+                        hasPassedDeleteThreshold = currentlyPastDelete
                         Feedback.thresholdCrossed()
                     }
                 }
@@ -2223,73 +2183,41 @@ struct TaskLinedRow: View {
                 isDragging = false
                 let translation = value.translation.width
 
-                guard translation > 0 else {
-                    Feedback.stopSwiping()
-                    return
-                }
-
-                if !isCompleted {
-                    if strikethroughProgress >= completionThreshold {
-                        withAnimation(JournalTheme.Animations.strikethrough) {
-                            strikethroughProgress = 1.0
+                if translation > 0 {
+                    // Right swipe ended — completion
+                    if !isCompleted {
+                        if strikethroughProgress >= completionThreshold {
+                            withAnimation(JournalTheme.Animations.strikethrough) {
+                                strikethroughProgress = 1.0
+                            }
+                            Feedback.swipeCompleted()
+                            onComplete()
+                            hasPassedThreshold = true
+                        } else {
+                            withAnimation(JournalTheme.Animations.strikethrough) {
+                                strikethroughProgress = 0
+                            }
+                            Feedback.swipeCancelled()
+                            hasPassedThreshold = false
                         }
-                        Feedback.swipeCompleted()
-                        onComplete()
-                        hasPassedThreshold = true
                     } else {
-                        withAnimation(JournalTheme.Animations.strikethrough) {
-                            strikethroughProgress = 0
-                        }
-                        Feedback.swipeCancelled()
-                        hasPassedThreshold = false
+                        Feedback.stopSwiping()
                     }
                 } else {
-                    Feedback.stopSwiping()
-                }
-            }
-    }
-
-    // Delete gesture (left swipe) - on full row
-    private func deleteGesture() -> some Gesture {
-        DragGesture(minimumDistance: 20, coordinateSpace: .local)
-            .onChanged { value in
-                let horizontal = abs(value.translation.width)
-                let vertical = abs(value.translation.height)
-                let translation = value.translation.width
-
-                guard horizontal > vertical, translation < 0 else { return }
-
-                isDragging = true
-                deleteOffset = translation
-
-                if strikethroughProgress > 0 && !isCompleted {
-                    strikethroughProgress = 0
-                }
-
-                let currentlyPastDelete = abs(translation) >= deleteDistanceThreshold
-                if currentlyPastDelete != hasPassedDeleteThreshold {
-                    hasPassedDeleteThreshold = currentlyPastDelete
-                    Feedback.thresholdCrossed()
-                }
-            }
-            .onEnded { value in
-                isDragging = false
-                let translation = value.translation.width
-
-                guard translation < 0 else { return }
-
-                if abs(translation) >= deleteDistanceThreshold {
-                    Feedback.delete()
-                    deleteOffset = 0
-                    withAnimation(.easeOut(duration: 0.25)) {
-                        onDelete()
-                    }
-                } else {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    // Left swipe ended — delete
+                    if abs(translation) >= deleteDistanceThreshold {
+                        Feedback.delete()
                         deleteOffset = 0
+                        withAnimation(.easeOut(duration: 0.25)) {
+                            onDelete()
+                        }
+                    } else {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            deleteOffset = 0
+                        }
                     }
+                    hasPassedDeleteThreshold = false
                 }
-                hasPassedDeleteThreshold = false
             }
     }
 }
@@ -2356,28 +2284,12 @@ struct GroupLinedRow: View {
 
                 // Group header content
                 HStack(spacing: 12) {
-                    // Checkbox — filled when satisfied, empty when not
-                    RoundedRectangle(cornerRadius: 6)
-                        .strokeBorder(
-                            isSatisfied
-                                ? JournalTheme.Colors.inkBlue
-                                : JournalTheme.Colors.completedGray,
-                            lineWidth: 1.5
-                        )
-                        .background(
-                            RoundedRectangle(cornerRadius: 6)
-                                .fill(isSatisfied
-                                    ? JournalTheme.Colors.inkBlue.opacity(0.1)
-                                    : Color.clear)
-                        )
-                        .overlay {
-                            if isSatisfied {
-                                Image(systemName: "checkmark")
-                                    .font(.custom("PatrickHand-Regular", size: 11))
-                                    .foregroundStyle(JournalTheme.Colors.inkBlue)
-                            }
-                        }
-                        .frame(width: 20, height: 20)
+                    // Bullet dot
+                    Circle()
+                        .fill(isSatisfied
+                            ? JournalTheme.Colors.completedGray
+                            : JournalTheme.Colors.inkBlack)
+                        .frame(width: 6, height: 6)
 
                     // Group name with chosen sub-habit when collapsed
                     if isSatisfied, let chosen = completedSubHabit {
@@ -2601,28 +2513,12 @@ struct SubHabitRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            // Sub-habit checkbox (smaller, muted)
-            RoundedRectangle(cornerRadius: 5)
-                .strokeBorder(
-                    isVisuallyCompleted
-                        ? JournalTheme.Colors.inkBlue.opacity(0.6)
-                        : JournalTheme.Colors.completedGray.opacity(0.5),
-                    lineWidth: 1.2
-                )
-                .background(
-                    RoundedRectangle(cornerRadius: 5)
-                        .fill(isVisuallyCompleted
-                            ? JournalTheme.Colors.inkBlue.opacity(0.08)
-                            : Color.clear)
-                )
-                .overlay {
-                    if isVisuallyCompleted {
-                        Image(systemName: "checkmark")
-                            .font(.custom("PatrickHand-Regular", size: 9))
-                            .foregroundStyle(JournalTheme.Colors.inkBlue.opacity(0.7))
-                    }
-                }
-                .frame(width: 17, height: 17)
+            // Bullet dot (smaller for sub-habits)
+            Circle()
+                .fill(isVisuallyCompleted
+                    ? JournalTheme.Colors.completedGray
+                    : JournalTheme.Colors.inkBlack)
+                .frame(width: 5, height: 5)
 
             // Sub-habit text (slightly smaller, muted)
             HStack(spacing: 4) {
@@ -2650,8 +2546,6 @@ struct SubHabitRow: View {
                     progress: $strikethroughProgress
                 )
             }
-            .contentShape(Rectangle())
-            .gesture(completionGesture(hitboxWidth: textWidth > 0 ? textWidth : 150))
 
             Spacer()
         }
@@ -2659,6 +2553,8 @@ struct SubHabitRow: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.leading, 48)
         .padding(.trailing, 24)
+        .contentShape(Rectangle())
+        .gesture(completionGesture(hitboxWidth: 300))
         .simultaneousGesture(
             LongPressGesture(minimumDuration: 0.5)
                 .onEnded { _ in
@@ -3022,28 +2918,12 @@ struct TimeSlotHabitRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            // Rounded square checkbox
-            RoundedRectangle(cornerRadius: 6)
-                .strokeBorder(
-                    isVisuallyCompleted
-                        ? JournalTheme.Colors.inkBlue
-                        : JournalTheme.Colors.completedGray,
-                    lineWidth: 1.5
-                )
-                .background(
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(isVisuallyCompleted
-                            ? JournalTheme.Colors.inkBlue.opacity(0.1)
-                            : Color.clear)
-                )
-                .overlay {
-                    if isVisuallyCompleted {
-                        Image(systemName: "checkmark")
-                            .font(.custom("PatrickHand-Regular", size: 11))
-                            .foregroundStyle(JournalTheme.Colors.inkBlue)
-                    }
-                }
-                .frame(width: 20, height: 20)
+            // Bullet dot
+            Circle()
+                .fill(isVisuallyCompleted
+                    ? JournalTheme.Colors.completedGray
+                    : JournalTheme.Colors.inkBlack)
+                .frame(width: 6, height: 6)
 
             // Habit text with strikethrough overlay
             VStack(alignment: .leading, spacing: 2) {
@@ -3087,8 +2967,6 @@ struct TimeSlotHabitRow: View {
                         .italic()
                 }
             }
-            .contentShape(Rectangle())
-            .gesture(completionGesture(hitboxWidth: textWidth > 0 ? textWidth : 200))
 
             Spacer()
 
@@ -3107,6 +2985,7 @@ struct TimeSlotHabitRow: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 24)
         .contentShape(Rectangle())
+        .gesture(completionGesture(hitboxWidth: 300))
         .simultaneousGesture(
             LongPressGesture(minimumDuration: 0.5)
                 .onEnded { _ in

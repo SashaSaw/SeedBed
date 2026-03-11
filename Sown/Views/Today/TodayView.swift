@@ -41,6 +41,10 @@ struct TodayContentView: View {
     @State private var showCriteriaOverlay: Bool = false
     @State private var criteriaHabit: Habit? = nil
 
+    // Sub-habit picker overlay state (group header swipe)
+    @State private var showSubHabitPicker: Bool = false
+    @State private var subHabitPickerGroup: HabitGroup? = nil
+
     // Quick-add sheets
     @State private var showingAddHabit: Bool = false
     @State private var showingAddMustDo: Bool = false
@@ -314,6 +318,32 @@ struct TodayContentView: View {
                 )
                 .transition(.opacity)
                 .zIndex(100)
+            }
+
+            // Sub-habit picker overlay (group header swipe)
+            if showSubHabitPicker, let group = subHabitPickerGroup {
+                let uncompletedHabits = store.habits(for: group).filter { !$0.isCompleted(for: selectedDate) }
+                SubHabitSelectionOverlay(
+                    group: group,
+                    habits: uncompletedHabits,
+                    onSelect: { habit in
+                        store.setCompletion(for: habit, completed: true, on: selectedDate)
+                        store.recordSelectedOption(for: habit, option: habit.name, on: selectedDate)
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showSubHabitPicker = false
+                        }
+                        subHabitPickerGroup = nil
+                        handleCompletionOverlay(for: habit)
+                    },
+                    onDismiss: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showSubHabitPicker = false
+                        }
+                        subHabitPickerGroup = nil
+                    }
+                )
+                .transition(.opacity)
+                .zIndex(99)
             }
 
             // Floating "Create Group" button during selection mode
@@ -864,6 +894,20 @@ struct TodayContentView: View {
                                 withAnimation(.easeInOut(duration: 0.25)) {
                                     isSelectingForGroup = true
                                     selectedHabitIdsForGroup = [habit.id]
+                                }
+                            },
+                            onSwipeComplete: {
+                                let uncompleted = store.habits(for: group).filter { !$0.isCompleted(for: selectedDate) }
+                                if uncompleted.count == 1, let only = uncompleted.first {
+                                    // Only one uncompleted sub-habit — complete it directly
+                                    store.setCompletion(for: only, completed: true, on: selectedDate)
+                                    store.recordSelectedOption(for: only, option: only.name, on: selectedDate)
+                                    handleCompletionOverlay(for: only)
+                                } else {
+                                    subHabitPickerGroup = group
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        showSubHabitPicker = true
+                                    }
                                 }
                             }
                         )
@@ -2235,6 +2279,7 @@ struct GroupLinedRow: View {
     let onLongPress: () -> Void
     var onHobbyComplete: ((Habit) -> Void)? = nil
     var onSubHabitLongPress: ((Habit) -> Void)? = nil
+    var onSwipeComplete: (() -> Void)? = nil
 
     // Collapse state
     @State private var isCollapsed: Bool = false
@@ -2246,8 +2291,14 @@ struct GroupLinedRow: View {
     @State private var hasPassedDeleteThreshold: Bool = false
     @State private var isDragging: Bool = false
     @State private var resetTask: Task<Void, Never>? = nil
+    @State private var rowWidth: CGFloat = 0
+
+    // Right-swipe complete state
+    @State private var completeProgress: CGFloat = 0
+    @State private var hasPassedCompleteThreshold: Bool = false
 
     private let deleteDistanceThreshold: CGFloat = 150
+    private let completionThreshold: CGFloat = 0.3
 
     private var isSatisfied: Bool {
         group.isSatisfied(habits: store.habits, for: selectedDate)
@@ -2321,6 +2372,20 @@ struct GroupLinedRow: View {
                         Text(group.name)
                             .font(JournalTheme.Fonts.habitName())
                             .foregroundStyle(JournalTheme.Colors.inkBlack)
+                            .background(
+                                GeometryReader { geo in
+                                    Color.clear
+                                        .onAppear { groupTextWidth = geo.size.width }
+                                        .onChange(of: geo.size.width) { _, w in groupTextWidth = w }
+                                }
+                            )
+                            .overlay(alignment: .leading) {
+                                StrikethroughLine(
+                                    width: groupTextWidth > 0 ? groupTextWidth : 200,
+                                    color: JournalTheme.Colors.inkBlue,
+                                    progress: $completeProgress
+                                )
+                            }
                     }
 
                     Spacer()
@@ -2341,11 +2406,17 @@ struct GroupLinedRow: View {
                 .frame(minHeight: 44)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 24)
-                .background(Color.clear)
+                .background(
+                    GeometryReader { rowGeometry in
+                        Color.clear
+                            .onAppear { rowWidth = rowGeometry.size.width }
+                            .onChange(of: rowGeometry.size.width) { _, w in rowWidth = w }
+                    }
+                )
                 .offset(x: deleteOffset)
             }
             .contentShape(Rectangle())
-            .gesture(deleteGesture())
+            .gesture(unifiedDragGesture())
             .simultaneousGesture(
                 LongPressGesture(minimumDuration: 0.5)
                     .onEnded { _ in
@@ -2426,6 +2497,12 @@ struct GroupLinedRow: View {
                                     hasPassedDeleteThreshold = false
                                 }
                             }
+                            if completeProgress > 0 && completeProgress < 1 {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    completeProgress = 0
+                                    hasPassedCompleteThreshold = false
+                                }
+                            }
                         }
                     }
                 }
@@ -2435,40 +2512,85 @@ struct GroupLinedRow: View {
         }
     }
 
-    private func deleteGesture() -> some Gesture {
+    private func unifiedDragGesture() -> some Gesture {
         DragGesture(minimumDistance: 20, coordinateSpace: .local)
             .onChanged { value in
                 let horizontal = abs(value.translation.width)
                 let vertical = abs(value.translation.height)
                 let translation = value.translation.width
-                guard horizontal > vertical, translation < 0 else { return }
+
+                guard horizontal > vertical else { return }
 
                 isDragging = true
-                deleteOffset = translation
 
-                let currentlyPast = abs(translation) >= deleteDistanceThreshold
-                if currentlyPast != hasPassedDeleteThreshold {
-                    hasPassedDeleteThreshold = currentlyPast
-                    Feedback.thresholdCrossed()
+                if translation > 0 {
+                    // Right swipe — complete group
+                    if deleteOffset < 0 {
+                        deleteOffset = 0
+                    }
+
+                    guard !isSatisfied else { return }
+
+                    let hitbox = rowWidth > 0 ? rowWidth : 300
+                    completeProgress = max(0, min(1, translation / hitbox))
+
+                    let currentlyPast = completeProgress >= completionThreshold
+                    if currentlyPast != hasPassedCompleteThreshold {
+                        hasPassedCompleteThreshold = currentlyPast
+                        Feedback.thresholdCrossed()
+                    }
+                } else {
+                    // Left swipe — delete
+                    if completeProgress > 0 {
+                        completeProgress = 0
+                    }
+
+                    deleteOffset = translation
+
+                    let currentlyPast = abs(translation) >= deleteDistanceThreshold
+                    if currentlyPast != hasPassedDeleteThreshold {
+                        hasPassedDeleteThreshold = currentlyPast
+                        Feedback.thresholdCrossed()
+                    }
                 }
             }
             .onEnded { value in
                 isDragging = false
                 let translation = value.translation.width
-                guard translation < 0 else { return }
 
-                if abs(translation) >= deleteDistanceThreshold {
-                    Feedback.delete()
-                    deleteOffset = 0
-                    withAnimation(.easeOut(duration: 0.25)) {
-                        onDelete()
+                if translation > 0 {
+                    // Right swipe ended — complete
+                    if !isSatisfied && completeProgress >= completionThreshold {
+                        Feedback.swipeCompleted()
+                        withAnimation(JournalTheme.Animations.strikethrough) {
+                            completeProgress = 1.0
+                        }
+                        // Small delay so strikethrough animates visually before overlay appears
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                            completeProgress = 0
+                            onSwipeComplete?()
+                        }
+                    } else {
+                        withAnimation(JournalTheme.Animations.strikethrough) {
+                            completeProgress = 0
+                        }
                     }
+                    hasPassedCompleteThreshold = false
                 } else {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    // Left swipe ended — delete
+                    if abs(translation) >= deleteDistanceThreshold {
+                        Feedback.delete()
                         deleteOffset = 0
+                        withAnimation(.easeOut(duration: 0.25)) {
+                            onDelete()
+                        }
+                    } else {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            deleteOffset = 0
+                        }
                     }
+                    hasPassedDeleteThreshold = false
                 }
-                hasPassedDeleteThreshold = false
             }
     }
 }

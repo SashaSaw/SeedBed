@@ -258,7 +258,6 @@ final class CloudSyncService {
         for key in kvStore.dictionaryRepresentation.keys {
             kvStore.removeObject(forKey: key)
         }
-        kvStore.synchronize()
         print("CloudSyncService: Cleared iCloud key-value store")
 
         // 4. Disable sync locally and clear backup state

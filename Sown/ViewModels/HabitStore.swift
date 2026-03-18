@@ -32,12 +32,28 @@ final class HabitStore {
         fetchEndOfDayNotes()
     }
 
-    /// Prefetch all dailyLogs to avoid lazy loading delays when opening Month tab
+    /// Prefetch today's DailyLogs via a direct query so that `habit.isCompleted(for:)`
+    /// doesn't trigger lazy relationship faulting during view rendering.
+    /// Also faults the dailyLogs relationship for the Month tab.
     func prefetchDailyLogs() {
-        Task.detached(priority: .userInitiated) {
-            // Access dailyLogs to trigger SwiftData to load them into memory
-            for habit in self.habits {
-                _ = habit.dailyLogs?.count
+        // 1. Fetch today's logs directly — this is a single indexed query, much faster
+        //    than faulting every habit's relationship.
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: Date())
+        guard let endOfToday = calendar.date(byAdding: .day, value: 1, to: startOfToday) else { return }
+
+        let descriptor = FetchDescriptor<DailyLog>(
+            predicate: #Predicate<DailyLog> { log in
+                log.date >= startOfToday && log.date < endOfToday
+            }
+        )
+        if let todayLogs = try? modelContext.fetch(descriptor) {
+            // Accessing these logs faults them into the context's row cache.
+            // When habit.isCompleted(for:) later walks habit.dailyLogs,
+            // the matching DailyLog is already in memory — no disk I/O.
+            for log in todayLogs {
+                _ = log.completed
+                _ = log.date
             }
         }
     }
@@ -80,13 +96,15 @@ final class HabitStore {
     func archiveHabit(_ habit: Habit) {
         habit.isActive = false
         saveContext()
-        fetchData()
+        fetchHabits()
+        fetchAllHabits()
     }
 
     func unarchiveHabit(_ habit: Habit) {
         habit.isActive = true
         saveContext()
-        fetchData()
+        fetchHabits()
+        fetchAllHabits()
     }
 
     func reorderHabits(_ habits: [Habit]) {
@@ -329,7 +347,8 @@ final class HabitStore {
 
         modelContext.insert(habit)
         saveContext()
-        fetchData()
+        fetchHabits()
+        fetchAllHabits()
 
         // Schedule notifications for the new habit
         if notificationsEnabled {
@@ -359,7 +378,8 @@ final class HabitStore {
 
     func updateHabit(_ habit: Habit) {
         saveContext()
-        fetchData()
+        fetchHabits()
+        fetchAllHabits()
 
         // Reschedule notifications if needed
         if habit.notificationsEnabled {
@@ -401,6 +421,81 @@ final class HabitStore {
 
     // MARK: - Group CRUD Operations
 
+    // MARK: - Batch Creation (used by onboarding)
+
+    /// Insert multiple habits in one batch — saves and fetches only once at the end.
+    @discardableResult
+    func addHabitsBatch(
+        _ drafts: [(
+            name: String, tier: HabitTier, type: HabitType,
+            frequencyType: FrequencyType, frequencyTarget: Int,
+            successCriteria: String?, isHobby: Bool,
+            enableNotesPhotos: Bool, habitPrompt: String,
+            scheduleTimes: [String], triggersAppBlockSlip: Bool
+        )]
+    ) -> [Habit] {
+        var maxSortOrder = habits.map { $0.sortOrder }.max() ?? 0
+        var created: [Habit] = []
+
+        for draft in drafts {
+            let effectiveTier: HabitTier = draft.frequencyType == .once ? .niceToDo : draft.tier
+            let effectiveType: HabitType = draft.frequencyType == .once ? .positive : draft.type
+
+            let habit = Habit(
+                name: draft.name,
+                tier: effectiveTier,
+                type: effectiveType,
+                frequencyType: draft.frequencyType,
+                frequencyTarget: draft.frequencyTarget,
+                successCriteria: draft.successCriteria,
+                sortOrder: maxSortOrder + 1,
+                isHobby: draft.isHobby
+            )
+            habit.enableNotesPhotos = draft.enableNotesPhotos
+            habit.habitPrompt = draft.habitPrompt
+            habit.scheduleTimes = draft.scheduleTimes
+            habit.triggersAppBlockSlip = draft.triggersAppBlockSlip
+
+            modelContext.insert(habit)
+            created.append(habit)
+            maxSortOrder += 1
+        }
+
+        saveContext()
+        fetchHabits()
+        fetchAllHabits()
+        refreshSmartReminders()
+        return created
+    }
+
+    /// Insert multiple groups in one batch — saves and fetches only once at the end.
+    func addGroupsBatch(
+        _ groupDrafts: [(name: String, tier: HabitTier, requireCount: Int, habitIds: [UUID])]
+    ) {
+        var maxSortOrder = groups.map { $0.sortOrder }.max() ?? 0
+
+        for draft in groupDrafts {
+            let group = HabitGroup(
+                name: draft.name,
+                tier: draft.tier,
+                requireCount: draft.requireCount,
+                habitIds: draft.habitIds,
+                sortOrder: maxSortOrder + 1
+            )
+            modelContext.insert(group)
+            maxSortOrder += 1
+
+            for habitId in draft.habitIds {
+                if let habit = habits.first(where: { $0.id == habitId }) {
+                    habit.groupId = group.id
+                }
+            }
+        }
+
+        saveContext()
+        fetchGroups()
+    }
+
     func addGroup(
         name: String,
         tier: HabitTier = .mustDo,
@@ -425,7 +520,7 @@ final class HabitStore {
         }
 
         saveContext()
-        fetchData()
+        fetchGroups()
     }
 
     func updateGroup(_ group: HabitGroup) {
@@ -443,7 +538,7 @@ final class HabitStore {
 
         modelContext.delete(group)
         saveContext()
-        fetchData()
+        fetchGroups()
     }
 
     /// Creates a new group by combining two habits (iOS folder-style creation)
@@ -469,7 +564,7 @@ final class HabitStore {
         habit2.groupId = group.id
 
         saveContext()
-        fetchData()
+        fetchGroups()
 
         return group
     }
@@ -479,7 +574,7 @@ final class HabitStore {
             group.habitIds.append(habit.id)
             habit.groupId = group.id
             saveContext()
-            fetchData()
+            fetchGroups()
         }
     }
 
@@ -487,7 +582,7 @@ final class HabitStore {
         group.habitIds.removeAll { $0 == habit.id }
         habit.groupId = nil
         saveContext()
-        fetchData()
+        fetchGroups()
     }
 
     // MARK: - Completion Logic
@@ -560,9 +655,15 @@ final class HabitStore {
 
     /// Reschedules smart reminders based on current habit state
     /// Called after completion changes so reminder content stays accurate
+    /// Debounced to 1 second so rapid tapping doesn't trigger many reschedules
+    private var smartReminderDebounceTask: Task<Void, Never>?
+
     func refreshSmartReminders() {
         guard UserSchedule.shared.smartRemindersEnabled else { return }
-        Task {
+        smartReminderDebounceTask?.cancel()
+        smartReminderDebounceTask = Task {
+            try? await Task.sleep(for: .seconds(1))
+            guard !Task.isCancelled else { return }
             await SmartReminderService.shared.rescheduleAllReminders(
                 habits: self.habits,
                 groups: self.groups

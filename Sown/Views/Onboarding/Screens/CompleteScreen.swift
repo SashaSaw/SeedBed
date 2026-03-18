@@ -73,10 +73,12 @@ struct CompleteScreen: View {
                 withAnimation(.easeInOut(duration: 0.4)) {
                     showPledge = false
                 }
-                // Create habits after transitioning
+                // Start celebration immediately, create habits concurrently
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    createHabits()
                     startCelebrationSequence()
+                    Task {
+                        createHabits()
+                    }
                 }
             } label: {
                 Text("I promise")
@@ -189,59 +191,51 @@ struct CompleteScreen: View {
     // MARK: - Habit Creation
 
     private func createHabits() {
-        // Track draft ID → created Habit for group assignment
-        var draftToHabit: [UUID: Habit] = [:]
-
-        for draft in selectedHabits {
+        // Batch-create all habits in one save+fetch cycle
+        let drafts = selectedHabits.map { draft in
             let habitName = draft.emoji.isEmpty ? draft.name : "\(draft.emoji) \(draft.name)"
-            let habit = store.addHabit(
+            return (
                 name: habitName,
                 tier: draft.tier,
                 type: draft.type,
                 frequencyType: draft.frequencyType,
                 frequencyTarget: draft.frequencyTarget,
-                successCriteria: draft.successCriteria.isEmpty ? nil : draft.successCriteria,
+                successCriteria: draft.successCriteria.isEmpty ? nil as String? : draft.successCriteria,
                 isHobby: draft.isHobby,
                 enableNotesPhotos: draft.enableNotesPhotos,
                 habitPrompt: draft.habitPrompt,
                 scheduleTimes: [draft.timeOfDay.rawValue],
                 triggersAppBlockSlip: draft.triggersAppBlockSlip
             )
-            draftToHabit[draft.id] = habit
         }
 
-        // Create auto-groups from onboarding grouping rules
-        for draftGroup in data.draftGroups {
-            // Only include members that were actually selected and created
+        let createdHabits = store.addHabitsBatch(drafts)
+
+        // Map draft IDs to created habits
+        var draftToHabit: [UUID: Habit] = [:]
+        for (index, draft) in selectedHabits.enumerated() {
+            if index < createdHabits.count {
+                draftToHabit[draft.id] = createdHabits[index]
+            }
+        }
+
+        // Batch-create groups
+        let groupDrafts: [(name: String, tier: HabitTier, requireCount: Int, habitIds: [UUID])] = data.draftGroups.compactMap { draftGroup in
             let memberHabitIds = draftGroup.memberDraftIds.compactMap { draftId -> UUID? in
                 guard let habit = draftToHabit[draftId] else { return nil }
                 return habit.id
             }
-
-            guard memberHabitIds.count >= 2 else { continue }
-
-            // Set groupId on each member habit
-            for habitId in memberHabitIds {
-                if let habit = draftToHabit.values.first(where: { $0.id == habitId }) {
-                    habit.groupId = UUID() // placeholder, will be set by addGroup
-                }
-            }
-
-            store.addGroup(
+            guard memberHabitIds.count >= 2 else { return nil }
+            return (
                 name: "\(draftGroup.emoji) \(draftGroup.name)",
-                tier: .mustDo,
+                tier: HabitTier.mustDo,
                 requireCount: draftGroup.requireCount,
                 habitIds: memberHabitIds
             )
+        }
 
-            // Update the groupId on each member habit to match the created group
-            if let createdGroup = store.groups.last {
-                for habitId in memberHabitIds {
-                    if let habit = store.habits.first(where: { $0.id == habitId }) {
-                        habit.groupId = createdGroup.id
-                    }
-                }
-            }
+        if !groupDrafts.isEmpty {
+            store.addGroupsBatch(groupDrafts)
         }
 
         // Save wake/bed times via UserSchedule singleton

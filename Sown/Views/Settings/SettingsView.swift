@@ -59,6 +59,9 @@ struct SettingsView: View {
                     // Smart Reminders section
                     SmartReminderSettingsCard()
 
+                    // AI Assistant
+                    AISettingsCard()
+
                     // HealthKit integration
                     HealthKitSettingsCard()
 

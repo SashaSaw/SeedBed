@@ -120,38 +120,57 @@ extension Color {
 
 /// Combined haptic + sound feedback. Call these instead of HapticFeedback directly.
 /// Sound can be toggled off in Settings; haptics always fire.
+///
+/// Generators are created once and reused — creating a new UIFeedbackGenerator per call
+/// triggers an XPC connection to hapticd each time, which can block the main thread for
+/// hundreds of milliseconds when the daemon is slow (e.g. first launch).
 enum Feedback {
     private static let sound = SoundEffectService.shared
+
+    // Reusable generators — created once, prepared once
+    private static let lightImpact = UIImpactFeedbackGenerator(style: .light)
+    private static let mediumImpact = UIImpactFeedbackGenerator(style: .medium)
+    private static let selectionGen = UISelectionFeedbackGenerator()
+    private static let notificationGen = UINotificationFeedbackGenerator()
+
+    /// Call early (e.g. in SownApp.init) to prepare the haptic engines
+    /// so the first tap doesn't stall waiting for the XPC connection.
+    static func warmUp() {
+        lightImpact.prepare()
+        mediumImpact.prepare()
+        selectionGen.prepare()
+        notificationGen.prepare()
+    }
 
     // === Original feedback types (1:1 replacements for HapticFeedback) ===
 
     /// Light impact + completion sound (habit tap-to-complete)
     static func completion() {
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        lightImpact.impactOccurred()
         sound.completion()
     }
 
     /// Notification success + success chime (habit saved, onboarding complete)
     static func success() {
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        notificationGen.notificationOccurred(.success)
         sound.successSound()
     }
 
     /// Selection changed + light click (toggles, pills, general taps)
     static func selection() {
-        UISelectionFeedbackGenerator().selectionChanged()
+        selectionGen.selectionChanged()
         sound.selection()
     }
 
     /// Medium impact + threshold click (swipe passes commit point)
     static func thresholdCrossed() {
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred(intensity: 0.7)
+        mediumImpact.impactOccurred(intensity: 0.7)
         sound.thresholdCrossed()
     }
 
     /// Strong success + completion sound (final swipe confirm)
     static func completionConfirmed() {
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        notificationGen.notificationOccurred(.success)
         sound.completion()
     }
 
@@ -159,31 +178,31 @@ enum Feedback {
 
     /// Good day achieved! Strong haptic + custom celebration fanfare.
     static func celebration() {
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        notificationGen.notificationOccurred(.success)
         sound.celebration()
     }
 
     /// Negative habit slipped. Medium impact + warning tone.
     static func slip() {
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        mediumImpact.impactOccurred()
         sound.slip()
     }
 
     /// Undo action. Light impact + subtle reverse sound.
     static func undo() {
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        lightImpact.impactOccurred()
         sound.undo()
     }
 
     /// Archive confirmed. Medium impact + swoosh.
     static func archive() {
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        mediumImpact.impactOccurred()
         sound.archive()
     }
 
     /// Delete confirmed. Medium impact + delete tone.
     static func delete() {
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        mediumImpact.impactOccurred()
         sound.deleteSound()
     }
 

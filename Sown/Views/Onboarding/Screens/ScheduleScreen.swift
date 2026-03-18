@@ -26,7 +26,14 @@ struct ScheduleScreen: View {
                     // Work hours toggle
                     VStack(spacing: 12) {
                         HStack {
-                            Toggle(isOn: $data.hasSetWorkHours) {
+                            Toggle(isOn: Binding(
+                                get: { data.hasSetWorkHours },
+                                set: { newValue in
+                                    withAnimation(.easeInOut(duration: 0.25)) {
+                                        data.hasSetWorkHours = newValue
+                                    }
+                                }
+                            )) {
                                 Text("I have set work hours")
                                     .font(.custom("PatrickHand-Regular", size: 15))
                                     .foregroundStyle(JournalTheme.Colors.inkBlack)
@@ -39,7 +46,6 @@ struct ScheduleScreen: View {
                             timeRow(label: "I finish work at", emoji: "\u{1F3E0}", time: $data.workEndTime)
                         }
                     }
-                    .animation(.easeInOut(duration: 0.25), value: data.hasSetWorkHours)
                 }
                 .opacity(appeared ? 1 : 0)
                 .offset(y: appeared ? 0 : 15)

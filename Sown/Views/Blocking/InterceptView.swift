@@ -304,7 +304,6 @@ struct InterceptView: View {
                 .padding(.horizontal, contentPadding)
             }
         }
-        .animation(.easeInOut(duration: 0.2), value: sentenceMatches)
     }
 
     // MARK: - Screen 2a.2: Countdown
@@ -409,7 +408,6 @@ struct InterceptView: View {
             Spacer()
             Spacer()
         }
-        .animation(.easeInOut(duration: 0.2), value: countdownSeconds)
         .onAppear {
             countdownSeconds = 10
             countdownTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { timer in

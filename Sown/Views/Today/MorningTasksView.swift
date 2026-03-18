@@ -188,7 +188,6 @@ struct MorningTasksView: View {
                             )
                     )
             }
-            .animation(.easeInOut(duration: 0.2), value: hasTasks)
         }
         .padding(.horizontal, 24)
         .padding(.bottom, 24)

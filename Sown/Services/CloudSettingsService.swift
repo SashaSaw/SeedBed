@@ -32,9 +32,6 @@ final class CloudSettingsService {
             object: store
         )
 
-        // Synchronize on launch
-        store.synchronize()
-
         // Check iCloud for onboarding status immediately
         checkOnboardingFromCloud()
     }
@@ -84,7 +81,6 @@ final class CloudSettingsService {
     /// Sync the iCloud enabled setting to cloud
     func syncCloudSyncSetting(_ enabled: Bool) {
         store.set(enabled, forKey: Keys.iCloudSyncEnabled)
-        store.synchronize()
     }
 
     // MARK: - Sync to Cloud
@@ -131,8 +127,7 @@ final class CloudSettingsService {
             }
         }
 
-        // Force sync
-        store.synchronize()
+        // System will sync automatically
     }
 
     /// Update a specific setting in cloud (called when setting changes)
@@ -150,7 +145,6 @@ final class CloudSettingsService {
             break
         }
 
-        store.synchronize()
     }
 
     // MARK: - External Change Handling

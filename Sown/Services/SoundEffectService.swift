@@ -47,9 +47,19 @@ final class SoundEffectService {
     // MARK: - Init
 
     private init() {
+        // Configure audio session immediately (fast)
         configureAudioSession()
-        preloadCustomSounds()
+        // Load sounds in background to avoid blocking main thread on first tap
+        DispatchQueue.global(qos: .userInitiated).async { [self] in
+            preloadCustomSounds()
+        }
         swipeHapticGenerator.prepare()
+    }
+
+    /// Trigger eager initialization so sounds are ready before first use.
+    /// Call this early in app startup (e.g. in SownApp.init).
+    static func warmUp() {
+        _ = shared
     }
 
     private func configureAudioSession() {
@@ -58,25 +68,42 @@ final class SoundEffectService {
     }
 
     private func preloadCustomSounds() {
-        celebrationPlayer = loadPlayer(named: "celebration")
-        completionPlayer = loadPlayer(named: "completion")
-        slipPlayer = loadPlayer(named: "slip")
-        successPlayer = loadPlayer(named: "success")
-        undoPlayer = loadPlayer(named: "uipop")
-        archivePlayer = loadPlayer(named: "archive")
-        deletePlayer = loadPlayer(named: "delete")
+        // Load into locals first, then assign on main thread to avoid races
+        let celebration = loadPlayer(named: "celebration")
+        let completion = loadPlayer(named: "completion")
+        let slip = loadPlayer(named: "slip")
+        let success = loadPlayer(named: "success")
+        let undo = loadPlayer(named: "uipop")
+        let archive = loadPlayer(named: "archive")
+        let delete = loadPlayer(named: "delete")
 
-        // Swipe sounds
-        swipingPlayer = loadPlayer(named: "swiping", looping: true)
-        swipeCompletePlayer = loadPlayer(named: "swipeComplete")
-        swipeCancelPlayer = loadPlayer(named: "swipeCancel")
+        let swiping = loadPlayer(named: "swiping", looping: true)
+        let swipeComplete = loadPlayer(named: "swipeComplete")
+        let swipeCancel = loadPlayer(named: "swipeCancel")
 
-        // UI interaction sounds
-        clickPlayer = loadPlayer(named: "click")
-        tickPlayer = loadPlayer(named: "tick")
-        whooshPlayer = loadPlayer(named: "whoosh")
-        tabPlayer = loadPlayer(named: "tab")
-        dingPlayer = loadPlayer(named: "ding")
+        let click = loadPlayer(named: "click")
+        let tick = loadPlayer(named: "tick")
+        let whoosh = loadPlayer(named: "whoosh")
+        let tab = loadPlayer(named: "tab")
+        let ding = loadPlayer(named: "ding")
+
+        DispatchQueue.main.async { [self] in
+            celebrationPlayer = celebration
+            completionPlayer = completion
+            slipPlayer = slip
+            successPlayer = success
+            undoPlayer = undo
+            archivePlayer = archive
+            deletePlayer = delete
+            swipingPlayer = swiping
+            swipeCompletePlayer = swipeComplete
+            swipeCancelPlayer = swipeCancel
+            clickPlayer = click
+            tickPlayer = tick
+            whooshPlayer = whoosh
+            tabPlayer = tab
+            dingPlayer = ding
+        }
     }
 
     private func loadPlayer(named name: String, looping: Bool = false) -> AVAudioPlayer? {

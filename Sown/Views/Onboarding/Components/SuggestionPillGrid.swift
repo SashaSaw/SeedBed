@@ -188,7 +188,6 @@ private struct SuggestionPill: View {
                     lineWidth: 1
                 )
             )
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
         }
         .buttonStyle(.plain)
     }

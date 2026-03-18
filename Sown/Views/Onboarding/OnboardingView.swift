@@ -84,7 +84,6 @@ struct OnboardingView: View {
                     .tag(8)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
-                .animation(.easeInOut(duration: 0.35), value: currentPage)
             }
         }
         .onChange(of: currentPage) { oldPage, newPage in

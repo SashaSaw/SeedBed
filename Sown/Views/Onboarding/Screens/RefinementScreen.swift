@@ -167,7 +167,6 @@ struct RefinementScreen: View {
                                 )
                         )
                 }
-                .animation(.easeInOut(duration: 0.2), value: selectedCount)
             }
             .padding(.horizontal, 28)
             .padding(.bottom, 24)

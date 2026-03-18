@@ -57,6 +57,7 @@ struct NameScreen: View {
             Spacer()
 
             // Button — only visible once name is entered
+            Group {
             if hasName {
                 Button {
                     saveName()
@@ -78,9 +79,10 @@ struct NameScreen: View {
                 .padding(.bottom, 48)
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
+            }
+            .animation(.easeInOut(duration: 0.25), value: hasName)
         }
         .onTapGesture { nameFieldFocused = false }
-        .animation(.easeInOut(duration: 0.25), value: hasName)
         .onAppear {
             nameInput = userName
             withAnimation(.easeOut(duration: 0.5).delay(0.2)) { showContent = true }

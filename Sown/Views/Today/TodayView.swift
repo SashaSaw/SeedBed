@@ -51,6 +51,7 @@ struct TodayContentView: View {
     @State private var showingAddNiceToDo: Bool = false
     @State private var showingAddTodayTask: Bool = false
     @State private var showingAddDontDo: Bool = false
+    @State private var showingSmartAdd: Bool = false
 
     // First-time group callout (lightbulb tip)
     @AppStorage("hasSeenGroupCallout") private var hasSeenGroupCallout: Bool = false
@@ -149,23 +150,6 @@ struct TodayContentView: View {
                         }
 
                         Spacer()
-
-                        // Sort mode toggle button
-                        Button {
-                            Feedback.selection()
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                sortModeRaw = (sortMode == .byType)
-                                    ? TodaySortMode.byTimeOfDay.rawValue
-                                    : TodaySortMode.byType.rawValue
-                            }
-                        } label: {
-                            Image(systemName: "arrow.up.arrow.down")
-                                .font(.system(size: 18, weight: .medium))
-                                .foregroundStyle(JournalTheme.Colors.inkBlue)
-                                .frame(width: 44, height: 44)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
                     }
                     .padding(.horizontal, contentPadding)
                     .padding(.top, userName.isEmpty ? lineHeight : lineHeight / 2)
@@ -219,7 +203,6 @@ struct TodayContentView: View {
                         reflectionButton
                     }
                     .padding(.top, 16)
-                    .animation(.easeInOut(duration: 0.3), value: sortMode)
 
                     // Empty state
                     if store.habits.isEmpty {
@@ -418,6 +401,10 @@ struct TodayContentView: View {
             AddDontDoView(store: store)
                 .onAppear { Feedback.sheetOpen() }
         }
+        .sheet(isPresented: $showingSmartAdd) {
+            SmartAddView(store: store)
+                .onAppear { Feedback.sheetOpen() }
+        }
         .sheet(isPresented: $showingReflection) {
             EndOfDayNoteView(
                 store: store,
@@ -447,12 +434,63 @@ struct TodayContentView: View {
             .onAppear { Feedback.sheetOpen() }
         }
         .toolbar {
-            // Show "+" button in top right when neither today-only nor done section exists
-            if !showTodayTaskButtonInSection {
-                ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItem(placement: .topBarTrailing) {
+                HStack(spacing: 12) {
+                    // Sort mode toggle
                     Button {
-                        Feedback.buttonPress()
-                        showingAddHabit = true
+                        Feedback.selection()
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            sortModeRaw = (sortMode == .byType)
+                                ? TodaySortMode.byTimeOfDay.rawValue
+                                : TodaySortMode.byType.rawValue
+                        }
+                    } label: {
+                        Image(systemName: "arrow.up.arrow.down")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(JournalTheme.Colors.inkBlue)
+                            .frame(width: 36, height: 36)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+
+                    // Add menu
+                    Menu {
+                        Button {
+                            Feedback.buttonPress()
+                            showingSmartAdd = true
+                        } label: {
+                            Label("Smart Add (AI)", systemImage: "wand.and.stars")
+                        }
+
+                        Divider()
+
+                        Button {
+                            Feedback.buttonPress()
+                            showingAddHabit = true
+                        } label: {
+                            Label("Quick Add", systemImage: "plus")
+                        }
+
+                        Button {
+                            Feedback.buttonPress()
+                            showingAddMustDo = true
+                        } label: {
+                            Label("Must-Do", systemImage: "star.fill")
+                        }
+
+                        Button {
+                            Feedback.buttonPress()
+                            showingAddNiceToDo = true
+                        } label: {
+                            Label("Nice-To-Do", systemImage: "target")
+                        }
+
+                        Button {
+                            Feedback.buttonPress()
+                            showingAddDontDo = true
+                        } label: {
+                            Label("Don't Do", systemImage: "xmark.circle")
+                        }
                     } label: {
                         Image(systemName: "plus")
                             .font(.custom("PatrickHand-Regular", size: 16))
@@ -738,8 +776,6 @@ struct TodayContentView: View {
                 )
                 .padding(.horizontal, contentPadding)
                 .padding(.top, 8)
-                .animation(.easeInOut(duration: 0.3), value: isGoodDay)
-                .animation(.easeInOut(duration: 0.3), value: completed)
             }
         }
     }
@@ -869,7 +905,6 @@ struct TodayContentView: View {
                         }
                     }
                 }
-                .animation(.easeInOut(duration: 0.25), value: uncompletedMustDos.count)
 
                 // Must-do groups with their habits (uncompleted only)
                 ForEach(uncompletedGroups) { group in
@@ -1056,7 +1091,6 @@ struct TodayContentView: View {
                         }
                     }
                 }
-                .animation(.easeInOut(duration: 0.25), value: uncompleted.count)
             }
 
             // "+ New nice-to-do" button at the end of the section
@@ -1214,7 +1248,6 @@ struct TodayContentView: View {
                         onDelete: { store.deleteHabit(task) }
                     )
                 }
-                .animation(.easeInOut(duration: 0.25), value: store.todayVisibleTasks.count)
 
                 // Show "New today task" button under today-only when there are uncompleted tasks
                 newTodayTaskButton
@@ -1269,7 +1302,6 @@ struct TodayContentView: View {
                         )
                     }
                 }
-                .animation(.easeInOut(duration: 0.25), value: store.negativeHabits.count)
             }
 
             // "+ New don't-do" button at the end of the section
@@ -2468,7 +2500,6 @@ struct GroupLinedRow: View {
                         removal: .opacity.combined(with: .move(edge: .top))
                     ))
                 }
-                .animation(.spring(response: 0.35, dampingFraction: 0.85), value: isSatisfied)
             }
         }
         .onAppear {

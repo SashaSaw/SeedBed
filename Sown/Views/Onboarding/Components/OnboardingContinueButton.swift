@@ -24,6 +24,5 @@ struct OnboardingContinueButton: View {
                         )
                 )
         }
-        .animation(.easeInOut(duration: 0.2), value: hasSelections)
     }
 }

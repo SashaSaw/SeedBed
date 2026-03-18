@@ -45,6 +45,12 @@ struct SownApp: App {
         // Sound effects enabled by default on first launch
         UserDefaults.standard.register(defaults: ["soundEffectsEnabled": true])
 
+        // Pre-load sound effects in background so first tap doesn't hang
+        SoundEffectService.warmUp()
+
+        // Prepare haptic generators so first tap doesn't block on XPC connection
+        Feedback.warmUp()
+
         // Request notification permission on app launch
         Task {
             _ = await NotificationService.shared.requestPermission()

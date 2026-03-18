@@ -735,8 +735,6 @@ final class HabitStore {
     /// For past dates with a locked DayRecord, uses the locked value.
     /// For today and unlocked dates, calculates live from current habit state.
     func isGoodDay(for date: Date) -> Bool {
-        let calendar = Calendar.current
-
         // Check for a locked DayRecord first (applies to past days locked at midnight)
         if let record = dayRecord(for: date), record.lockedAt != nil {
             return record.isGoodDay

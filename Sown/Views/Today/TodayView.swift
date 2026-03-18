@@ -587,10 +587,11 @@ struct TodayContentView: View {
                 // Refresh HealthKit values when app becomes active (background thread)
                 let manager = healthKitManager
                 let metrics = store.activeHealthKitMetrics
-                Task.detached(priority: .userInitiated) { [weak store] in
+                let capturedStore = store
+                Task.detached(priority: .userInitiated) {
                     await manager.refreshValues(for: metrics)
                     await MainActor.run {
-                        store?.checkHealthKitCompletions(triggerNotification: false)
+                        capturedStore.checkHealthKitCompletions(triggerNotification: false)
                     }
                 }
 
@@ -644,17 +645,18 @@ struct TodayContentView: View {
         let activeMetrics = store.activeHealthKitMetrics
         guard !activeMetrics.isEmpty else { return }
 
-        // Enable background delivery for active metrics (run on background thread to avoid blocking UI)
+        // Enable background delivery for active metrics
         let manager = healthKitManager
-        Task.detached(priority: .userInitiated) {
+        let capturedStore = store
+        Task {
             manager.enableBackgroundDelivery(for: activeMetrics)
         }
 
         // Initial fetch on background thread
-        Task.detached(priority: .userInitiated) { [weak store] in
+        Task.detached(priority: .userInitiated) {
             await manager.refreshValues(for: activeMetrics)
             await MainActor.run {
-                store?.checkHealthKitCompletions(triggerNotification: false)
+                capturedStore.checkHealthKitCompletions(triggerNotification: false)
             }
         }
 

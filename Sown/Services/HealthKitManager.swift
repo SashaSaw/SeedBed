@@ -292,9 +292,9 @@ final class HealthKitManager {
                 }
 
                 // Fetch updated value
-                Task {
+                Task { [weak self] in
                     if let value = await self?.fetchTodayValue(for: metric) {
-                        await MainActor.run {
+                        await MainActor.run { [weak self] in
                             self?.currentValues[metric] = value
                             self?.valueUpdatesPublisher.send(metric)
                         }

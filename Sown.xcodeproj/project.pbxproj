@@ -473,7 +473,7 @@
 				CODE_SIGN_ENTITLEMENTS = HabitMonitor/HabitMonitor.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 3365FP92M9;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = HabitMonitor/Info.plist;
@@ -505,7 +505,7 @@
 				CODE_SIGN_ENTITLEMENTS = HabitMonitor/HabitMonitor.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 3365FP92M9;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = HabitMonitor/Info.plist;
@@ -537,7 +537,7 @@
 				CODE_SIGN_ENTITLEMENTS = HabitShieldConfig/HabitShieldConfig.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 3365FP92M9;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = HabitShieldConfig/Info.plist;
@@ -569,7 +569,7 @@
 				CODE_SIGN_ENTITLEMENTS = HabitShieldConfig/HabitShieldConfig.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 3365FP92M9;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = HabitShieldConfig/Info.plist;
@@ -601,7 +601,7 @@
 				CODE_SIGN_ENTITLEMENTS = HabitShieldAction/HabitShieldAction.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 3365FP92M9;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = HabitShieldAction/Info.plist;
@@ -633,7 +633,7 @@
 				CODE_SIGN_ENTITLEMENTS = HabitShieldAction/HabitShieldAction.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 3365FP92M9;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = HabitShieldAction/Info.plist;

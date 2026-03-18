@@ -174,7 +174,7 @@ final class CloudSettingsService {
 
     /// Pull settings from cloud to local storage
     private func pullSettingsFromCloud() {
-        guard let changedKeys = store.dictionaryRepresentation.keys as? [String] else { return }
+        let changedKeys = Array(store.dictionaryRepresentation.keys)
 
         for key in changedKeys {
             switch key {

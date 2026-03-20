@@ -8,6 +8,11 @@ struct JournalView: View {
         NavigationStack {
             JournalContentView(store: store)
                 .navigationTitle("Journal")
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        HelpButton(section: .journal)
+                    }
+                }
         }
     }
 }

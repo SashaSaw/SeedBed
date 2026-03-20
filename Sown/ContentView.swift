@@ -75,21 +75,21 @@ struct ContentView: View {
                             }
                             .tag(1)
 
+                        BlockTabView()
+                            .tabItem {
+                                Label("Block", systemImage: "lock.shield")
+                            }
+                            .tag(2)
+
                         JournalView(store: store)
                             .tabItem {
                                 Label("Journal", systemImage: "book")
                             }
-                            .tag(2)
+                            .tag(3)
 
                         StatsView(store: store)
                             .tabItem {
                                 Label("Stats", systemImage: "chart.bar")
-                            }
-                            .tag(3)
-
-                        SettingsView(store: store)
-                            .tabItem {
-                                Label("Settings", systemImage: "gearshape")
                             }
                             .tag(4)
                     }
@@ -98,8 +98,8 @@ struct ContentView: View {
                         Feedback.tabSwitch()
                     }
                     .onAppear {
-                        // Refresh smart reminders on app launch with current habit state
-                        store.refreshSmartReminders()
+                        // Refresh notifications on app launch with current habit state
+                        store.refreshNotifications()
                         // Check if launched from shield
                         checkAndShowIntercept()
                         // Check for pending notification navigation

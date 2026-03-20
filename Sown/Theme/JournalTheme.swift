@@ -133,13 +133,16 @@ enum Feedback {
     private static let selectionGen = UISelectionFeedbackGenerator()
     private static let notificationGen = UINotificationFeedbackGenerator()
 
-    /// Call early (e.g. in SownApp.init) to prepare the haptic engines
-    /// so the first tap doesn't stall waiting for the XPC connection.
+    /// Call early (e.g. in SownApp.init) to kick off haptic engine preparation.
+    /// Runs asynchronously so it doesn't block app startup — each prepare() call
+    /// involves an XPC round-trip to hapticd that can block for seconds.
     static func warmUp() {
-        lightImpact.prepare()
-        mediumImpact.prepare()
-        selectionGen.prepare()
-        notificationGen.prepare()
+        DispatchQueue.main.async {
+            lightImpact.prepare()
+            mediumImpact.prepare()
+            selectionGen.prepare()
+            notificationGen.prepare()
+        }
     }
 
     // === Original feedback types (1:1 replacements for HapticFeedback) ===

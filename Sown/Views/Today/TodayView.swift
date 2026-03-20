@@ -64,6 +64,9 @@ struct TodayContentView: View {
     // Block setup sheet
     @State private var showingBlockSetup: Bool = false
 
+    // Settings sheet (gear icon in nav bar)
+    @State private var showingSettings: Bool = false
+
     // End of day reflection
     @State private var showingReflection: Bool = false
     @State private var blockSettings = BlockSettings.shared
@@ -121,6 +124,7 @@ struct TodayContentView: View {
     }
 
     var body: some View {
+        let _ = store.completionChangeCounter  // Force re-render on completion changes
         ZStack {
             // Paper background
             LinedPaperBackground(lineSpacing: lineHeight)
@@ -128,7 +132,7 @@ struct TodayContentView: View {
 
             // Scrollable content
             ScrollView {
-                VStack(spacing: 0) {
+                LazyVStack(spacing: 0) {
                     // Header — left aligned with sort button on right
                     HStack(alignment: .top) {
                         VStack(alignment: .leading, spacing: 0) {
@@ -417,6 +421,10 @@ struct TodayContentView: View {
             BlockSetupView()
                 .onAppear { Feedback.sheetOpen() }
         }
+        .sheet(isPresented: $showingSettings) {
+            SettingsView(store: store)
+                .onAppear { Feedback.sheetOpen() }
+        }
         .sheet(isPresented: $showingAddGroup) {
             AddGroupView(store: store, selectedHabitIds: selectedHabitIdsForGroup) {
                 // On completion, exit selection mode
@@ -436,6 +444,21 @@ struct TodayContentView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 HStack(spacing: 12) {
+                    // Settings gear
+                    Button {
+                        Feedback.buttonPress()
+                        showingSettings = true
+                    } label: {
+                        Image(systemName: "gearshape")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(JournalTheme.Colors.inkBlue)
+                            .frame(width: 36, height: 36)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+
+                    HelpButton(section: .todayView)
+
                     // Sort mode toggle
                     Button {
                         Feedback.selection()
@@ -577,6 +600,7 @@ struct TodayContentView: View {
                 if today != lastKnownDay {
                     // Lock yesterday's good day status before switching to today
                     store.lockPreviousDayIfNeeded()
+                    store.cleanupExpiredTodayTasks()
                     selectedDate = Date()
                     lastKnownDay = today
                     wasGoodDay = store.isGoodDay(for: selectedDate)
@@ -606,6 +630,7 @@ struct TodayContentView: View {
             let today = Calendar.current.startOfDay(for: Date())
             if today != lastKnownDay {
                 store.lockPreviousDayIfNeeded()
+                store.cleanupExpiredTodayTasks()
                 selectedDate = Date()
                 lastKnownDay = today
                 wasGoodDay = store.isGoodDay(for: selectedDate)
@@ -795,7 +820,7 @@ struct TodayContentView: View {
                     Text("🔒")
                         .font(.custom("PatrickHand-Regular", size: 14))
 
-                    Text("\(count) app\(count == 1 ? "" : "s") blocked")
+                    Text("\(blockSettings.selectionSummary) blocked")
                         .font(.custom("PatrickHand-Regular", size: 13))
                         .foregroundStyle(JournalTheme.Colors.inkBlack.opacity(0.7))
 
@@ -829,7 +854,7 @@ struct TodayContentView: View {
 
     // MARK: - Section Header Helper
 
-    private func sectionHeader(_ title: String, color: Color, badge: Int? = nil) -> some View {
+    private func sectionHeader(_ title: String, color: Color, badge: Int? = nil, helpSection: HelpSection? = nil) -> some View {
         HStack(spacing: 8) {
             Text(title)
                 .font(JournalTheme.Fonts.sectionHeader())
@@ -842,6 +867,10 @@ struct TodayContentView: View {
                     .foregroundStyle(.white)
                     .frame(width: 18, height: 18)
                     .background(Circle().fill(color))
+            }
+
+            if let helpSection {
+                HelpButton(section: helpSection)
             }
 
             Spacer()
@@ -859,7 +888,7 @@ struct TodayContentView: View {
 
         VStack(spacing: 0) {
             if !uncompletedMustDos.isEmpty || !uncompletedGroups.isEmpty {
-                sectionHeader("★ MUST-DOS:", color: JournalTheme.Colors.amber)
+                sectionHeader("★ MUST-DOS:", color: JournalTheme.Colors.amber, helpSection: .mustDo)
 
                 // Standalone must-do habits (uncompleted only)
                 ForEach(uncompletedMustDos) { habit in
@@ -1046,7 +1075,7 @@ struct TodayContentView: View {
 
         VStack(spacing: 0) {
             if !uncompleted.isEmpty {
-                sectionHeader("NICE-TO-DOS:", color: JournalTheme.Colors.sectionHeader)
+                sectionHeader("NICE-TO-DOS:", color: JournalTheme.Colors.sectionHeader, helpSection: .niceToDo)
 
                 ForEach(uncompleted) { habit in
                     if isSelectingForGroup {
@@ -1236,7 +1265,7 @@ struct TodayContentView: View {
     private var todayOnlySection: some View {
         if !store.todayVisibleTasks.isEmpty {
             VStack(spacing: 0) {
-                sectionHeader("◇ TODAY ONLY", color: JournalTheme.Colors.teal, badge: store.todayVisibleTasks.count)
+                sectionHeader("◇ TODAY ONLY", color: JournalTheme.Colors.teal, badge: store.todayVisibleTasks.count, helpSection: .todayOnly)
 
                 ForEach(store.todayVisibleTasks) { task in
                     TaskLinedRow(
@@ -1263,7 +1292,7 @@ struct TodayContentView: View {
     private var dontDoSection: some View {
         VStack(spacing: 0) {
             if !store.negativeHabits.isEmpty {
-                sectionHeader("DON'T-DOS:", color: JournalTheme.Colors.negativeRedDark)
+                sectionHeader("DON'T-DOS:", color: JournalTheme.Colors.negativeRedDark, helpSection: .dontDo)
 
                 ForEach(store.negativeHabits) { habit in
                     if isSelectingForGroup {

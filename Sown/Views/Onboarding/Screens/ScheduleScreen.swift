@@ -50,8 +50,8 @@ struct ScheduleScreen: View {
                 .opacity(appeared ? 1 : 0)
                 .offset(y: appeared ? 0 : 15)
 
-                // Smart reminders card
-                SmartReminderSettingsCard()
+                // Notifications card
+                NotificationSettingsCard()
                     .opacity(appeared ? 1 : 0)
                     .offset(y: appeared ? 0 : 15)
 

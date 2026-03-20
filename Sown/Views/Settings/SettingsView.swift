@@ -4,7 +4,6 @@ import SwiftUI
 struct SettingsView: View {
     @Bindable var store: HabitStore
     @State private var schedule = UserSchedule.shared
-    @State private var showingBlockSetup = false
     @AppStorage("soundEffectsEnabled") private var soundEffectsEnabled = true
     @AppStorage("userName") private var userName = ""
     @State private var editingName = ""
@@ -21,43 +20,11 @@ struct SettingsView: View {
                     // Name/greeting section
                     nameCard
 
-                    // App Blocking button
-                    Button {
-                        Feedback.buttonPress()
-                        showingBlockSetup = true
-                    } label: {
-                        HStack {
-                            Image(systemName: "lock.shield")
-                                .font(.custom("PatrickHand-Regular", size: 18))
-                                .foregroundStyle(JournalTheme.Colors.amber)
-
-                            Text("App Blocking")
-                                .font(.custom("PatrickHand-Regular", size: 17))
-                                .foregroundStyle(JournalTheme.Colors.inkBlack)
-
-                            Spacer()
-
-                            Image(systemName: "chevron.right")
-                                .font(.custom("PatrickHand-Regular", size: 14))
-                                .foregroundStyle(JournalTheme.Colors.completedGray)
-                        }
-                        .padding(16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(JournalTheme.Colors.paperLight)
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .strokeBorder(JournalTheme.Colors.lineLight, lineWidth: 1)
-                        )
-                    }
-                    .buttonStyle(.plain)
-
                     // iCloud Backup section
                     iCloudBackupCard
 
-                    // Smart Reminders section
-                    SmartReminderSettingsCard()
+                    // Notifications section
+                    NotificationSettingsCard()
 
                     // AI Assistant
                     AISettingsCard()
@@ -144,9 +111,10 @@ struct SettingsView: View {
             .linedPaperBackground()
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
-            .sheet(isPresented: $showingBlockSetup) {
-                BlockSetupView()
-                    .onAppear { Feedback.sheetOpen() }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    HelpButton(section: .settings)
+                }
             }
             .alert("Restart Required", isPresented: $showingRestartAlert) {
                 Button("OK") { }
@@ -169,14 +137,14 @@ struct SettingsView: View {
                 Text("This will permanently delete all your data from iCloud, including habits, logs, and photos. Your local data will not be affected. This cannot be undone.")
             }
             .onChange(of: schedule.wakeTimeMinutes) { _, _ in
-                store.refreshSmartReminders()
+                store.refreshNotifications()
             }
             .onChange(of: schedule.bedTimeMinutes) { _, _ in
-                store.refreshSmartReminders()
+                store.refreshNotifications()
             }
-            .onChange(of: schedule.smartRemindersEnabled) { _, newValue in
+            .onChange(of: schedule.notificationsEnabled) { _, newValue in
                 if newValue {
-                    store.refreshSmartReminders()
+                    store.refreshNotifications()
                 }
             }
         }

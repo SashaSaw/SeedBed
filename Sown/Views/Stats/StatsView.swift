@@ -18,6 +18,11 @@ struct StatsView: View {
         NavigationStack {
             StatsContentView(store: store)
                 .navigationTitle("Statistics")
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        HelpButton(section: .stats)
+                    }
+                }
         }
     }
 }

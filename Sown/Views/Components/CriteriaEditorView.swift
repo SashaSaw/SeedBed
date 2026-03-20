@@ -2,7 +2,7 @@ import SwiftUI
 
 /// The type of criterion: a measurable number+unit or a time target
 enum CriterionMode: String, CaseIterable {
-    case measure = "Measure"
+    case measure = "Unit"
     case byTime = "By a time"
 }
 
@@ -161,7 +161,7 @@ struct CriteriaEditorView: View {
         }
     }
 
-    // MARK: - Measure Input
+    // MARK: - Unit Input
 
     private func measureInput(index: Int) -> some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -206,6 +206,11 @@ struct CriteriaEditorView: View {
 
             // Unit picker pills
             unitPicker(index: index)
+
+            Text("What unit are you tracking? e.g. litres, pages, reps")
+                .font(.custom("PatrickHand-Regular", size: 11))
+                .foregroundStyle(JournalTheme.Colors.completedGray)
+                .padding(.top, 2)
         }
     }
 

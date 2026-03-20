@@ -198,6 +198,8 @@ struct MonthGridView: View {
 
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 16) {
+                        HelpButton(section: .monthGrid)
+
                         Button {
                             Feedback.selection()
                             withAnimation {

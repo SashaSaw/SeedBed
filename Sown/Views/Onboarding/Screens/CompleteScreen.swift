@@ -241,13 +241,8 @@ struct CompleteScreen: View {
         // Save wake/bed times via UserSchedule singleton
         UserSchedule.shared.updateFromOnboarding(wakeTime: data.wakeUpTime, bedTime: data.bedTime)
 
-        // Schedule smart reminders if enabled
-        Task {
-            await SmartReminderService.shared.rescheduleAllReminders(
-                habits: store.habits,
-                groups: store.groups
-            )
-        }
+        // Schedule notifications based on habit time slots
+        store.refreshNotifications()
 
         habitsCreated = true
     }

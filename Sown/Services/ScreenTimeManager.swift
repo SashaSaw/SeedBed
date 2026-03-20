@@ -169,34 +169,52 @@ final class ScreenTimeManager {
 
     // MARK: - Schedule Monitoring
 
-    /// Start monitoring the block schedule — shields will be applied/removed automatically
+    /// Start monitoring the block schedule — registers one activity per schedule entry
     func startMonitoring() {
         let blockSettings = BlockSettings.shared
 
-        let startHour = blockSettings.scheduleStartMinutes / 60
-        let startMinute = blockSettings.scheduleStartMinutes % 60
-        let endHour = blockSettings.scheduleEndMinutes / 60
-        let endMinute = blockSettings.scheduleEndMinutes % 60
-
-        let schedule = DeviceActivitySchedule(
-            intervalStart: DateComponents(hour: startHour, minute: startMinute),
-            intervalEnd: DateComponents(hour: endHour, minute: endMinute),
-            repeats: true
-        )
-
-        do {
-            // Stop any existing monitoring first
-            activityCenter.stopMonitoring([blockingActivity])
-            // Start fresh
-            try activityCenter.startMonitoring(blockingActivity, during: schedule)
-        } catch {
-            print("ScreenTimeManager: Failed to start monitoring: \(error)")
+        // Stop all existing monitoring first
+        var activitiesToStop = [blockingActivity]
+        // Also stop any per-day activities
+        for day in 1...7 {
+            activitiesToStop.append(DeviceActivityName("sown.block.\(day)"))
         }
+        activityCenter.stopMonitoring(activitiesToStop)
+
+        // Register one activity per schedule entry
+        for entry in blockSettings.scheduleEntries {
+            let startHour = entry.startMinutes / 60
+            let startMinute = entry.startMinutes % 60
+            let endHour = entry.endMinutes / 60
+            let endMinute = entry.endMinutes % 60
+
+            let schedule = DeviceActivitySchedule(
+                intervalStart: DateComponents(hour: startHour, minute: startMinute),
+                intervalEnd: DateComponents(hour: endHour, minute: endMinute),
+                repeats: true
+            )
+
+            let activityName = DeviceActivityName("sown.block.\(entry.dayOfWeek)")
+
+            do {
+                try activityCenter.startMonitoring(activityName, during: schedule)
+            } catch {
+                print("ScreenTimeManager: Failed to start monitoring for day \(entry.dayOfWeek): \(error)")
+            }
+        }
+
+        // Save day-of-week mapping to shared defaults so the extension can check
+        let dayMapping = blockSettings.scheduleEntries.map { $0.dayOfWeek }
+        sharedDefaults.set(dayMapping, forKey: "blockScheduleDays")
     }
 
     /// Stop monitoring the schedule
     func stopMonitoring() {
-        activityCenter.stopMonitoring([blockingActivity])
+        var activitiesToStop = [blockingActivity]
+        for day in 1...7 {
+            activitiesToStop.append(DeviceActivityName("sown.block.\(day)"))
+        }
+        activityCenter.stopMonitoring(activitiesToStop)
         removeShields()
     }
 

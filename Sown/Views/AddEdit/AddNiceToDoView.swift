@@ -343,10 +343,14 @@ struct AddNiceToDoView: View {
 
     private var successCriteriaSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("HOW WILL YOU MEASURE SUCCESS?")
-                .font(JournalTheme.Fonts.sectionHeader())
-                .foregroundStyle(JournalTheme.Colors.completedGray)
-                .tracking(1.5)
+            HStack(spacing: 8) {
+                Text("HOW WILL YOU MEASURE SUCCESS?")
+                    .font(JournalTheme.Fonts.sectionHeader())
+                    .foregroundStyle(JournalTheme.Colors.completedGray)
+                    .tracking(1.5)
+
+                HelpButton(section: .successCriteria)
+            }
 
             // Measurement type picker (only show if we have options)
             if availableMeasurementTypes.count > 1 {

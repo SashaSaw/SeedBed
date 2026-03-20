@@ -53,7 +53,10 @@ final class SoundEffectService {
         DispatchQueue.global(qos: .userInitiated).async { [self] in
             preloadCustomSounds()
         }
-        swipeHapticGenerator.prepare()
+        // Defer haptic prepare to avoid blocking on hapticd XPC during init
+        DispatchQueue.main.async { [self] in
+            swipeHapticGenerator.prepare()
+        }
     }
 
     /// Trigger eager initialization so sounds are ready before first use.

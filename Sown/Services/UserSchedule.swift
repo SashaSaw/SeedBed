@@ -1,7 +1,7 @@
 import Foundation
 
 /// Persistent singleton for user's daily schedule (wake/bed times)
-/// Used by SmartReminderService and notification system to calculate reminder times
+/// Used by UnifiedNotificationService to calculate per-habit notification times
 @Observable
 final class UserSchedule {
     static let shared = UserSchedule()
@@ -24,12 +24,71 @@ final class UserSchedule {
         }
     }
 
-    /// Whether smart reminders are enabled globally
-    var smartRemindersEnabled: Bool {
+    /// Whether notifications are enabled globally (master toggle)
+    var notificationsEnabled: Bool {
         didSet {
             save()
-            // Sync to cloud if enabled
-            CloudSettingsService.shared.updateSetting("smartRemindersEnabled", value: smartRemindersEnabled)
+            CloudSettingsService.shared.updateSetting("smartRemindersEnabled", value: notificationsEnabled)
+        }
+    }
+
+    /// Legacy accessor — maps to notificationsEnabled for backwards compatibility
+    var smartRemindersEnabled: Bool {
+        get { notificationsEnabled }
+        set { notificationsEnabled = newValue }
+    }
+
+    // MARK: - Per-Slot Enabled Toggles
+
+    var slotAfterWakeEnabled: Bool {
+        didSet { saveSlotToggles(); CloudSettingsService.shared.updateSetting("slotAfterWakeEnabled", value: slotAfterWakeEnabled) }
+    }
+    var slotMorningEnabled: Bool {
+        didSet { saveSlotToggles(); CloudSettingsService.shared.updateSetting("slotMorningEnabled", value: slotMorningEnabled) }
+    }
+    var slotDaytimeEnabled: Bool {
+        didSet { saveSlotToggles(); CloudSettingsService.shared.updateSetting("slotDaytimeEnabled", value: slotDaytimeEnabled) }
+    }
+    var slotEveningEnabled: Bool {
+        didSet { saveSlotToggles(); CloudSettingsService.shared.updateSetting("slotEveningEnabled", value: slotEveningEnabled) }
+    }
+    var slotBeforeBedEnabled: Bool {
+        didSet { saveSlotToggles(); CloudSettingsService.shared.updateSetting("slotBeforeBedEnabled", value: slotBeforeBedEnabled) }
+    }
+
+    /// Returns whether notifications are enabled for a given slot index (0-4)
+    func isSlotEnabled(_ index: Int) -> Bool {
+        switch index {
+        case 0: return slotAfterWakeEnabled
+        case 1: return slotMorningEnabled
+        case 2: return slotDaytimeEnabled
+        case 3: return slotEveningEnabled
+        case 4: return slotBeforeBedEnabled
+        default: return true
+        }
+    }
+
+    /// Sets whether notifications are enabled for a given slot index
+    func setSlotEnabled(_ index: Int, enabled: Bool) {
+        switch index {
+        case 0: slotAfterWakeEnabled = enabled
+        case 1: slotMorningEnabled = enabled
+        case 2: slotDaytimeEnabled = enabled
+        case 3: slotEveningEnabled = enabled
+        case 4: slotBeforeBedEnabled = enabled
+        default: break
+        }
+    }
+
+    /// Returns the notification time (minutes from midnight) for a given slot index
+    func timeForSlot(_ index: Int) -> Int {
+        switch index {
+        case 0: return reminder1Minutes
+        case 1: return reminder2Minutes
+        case 2: return reminder3Minutes
+        case 3: return reminder4Minutes
+        case 4: return reminder5Minutes
+        default: return 0
         }
     }
 
@@ -181,6 +240,7 @@ final class UserSchedule {
     private let bedKey = "userBedTimeMinutes"
     private let remindersKey = "smartRemindersEnabled"
     private let overrideKeys = (1...5).map { "reminder\($0)Override" }
+    private let slotToggleKeys = ["slotAfterWakeEnabled", "slotMorningEnabled", "slotDaytimeEnabled", "slotEveningEnabled", "slotBeforeBedEnabled"]
 
     private init() {
         let storedWake = defaults.integer(forKey: wakeKey)
@@ -188,7 +248,14 @@ final class UserSchedule {
 
         self.wakeTimeMinutes = storedWake > 0 ? storedWake : 420    // 7:00 AM
         self.bedTimeMinutes = storedBed > 0 ? storedBed : 1380      // 11:00 PM
-        self.smartRemindersEnabled = defaults.bool(forKey: remindersKey)
+        self.notificationsEnabled = defaults.bool(forKey: remindersKey)
+
+        // Load per-slot enabled toggles (default to true if never set)
+        self.slotAfterWakeEnabled = defaults.object(forKey: slotToggleKeys[0]) == nil ? true : defaults.bool(forKey: slotToggleKeys[0])
+        self.slotMorningEnabled = defaults.object(forKey: slotToggleKeys[1]) == nil ? true : defaults.bool(forKey: slotToggleKeys[1])
+        self.slotDaytimeEnabled = defaults.object(forKey: slotToggleKeys[2]) == nil ? true : defaults.bool(forKey: slotToggleKeys[2])
+        self.slotEveningEnabled = defaults.object(forKey: slotToggleKeys[3]) == nil ? true : defaults.bool(forKey: slotToggleKeys[3])
+        self.slotBeforeBedEnabled = defaults.object(forKey: slotToggleKeys[4]) == nil ? true : defaults.bool(forKey: slotToggleKeys[4])
 
         // Load reminder overrides (-1 means nil/no override)
         self.reminder1Override = loadOverride(index: 0)
@@ -221,8 +288,18 @@ final class UserSchedule {
         }
 
         let storedReminders = defaults.bool(forKey: remindersKey)
-        if storedReminders != smartRemindersEnabled {
-            smartRemindersEnabled = storedReminders
+        if storedReminders != notificationsEnabled {
+            notificationsEnabled = storedReminders
+        }
+
+        // Reload slot toggles
+        for (i, key) in slotToggleKeys.enumerated() {
+            if defaults.object(forKey: key) != nil {
+                let val = defaults.bool(forKey: key)
+                if val != isSlotEnabled(i) {
+                    setSlotEnabled(i, enabled: val)
+                }
+            }
         }
 
         // Reload overrides
@@ -236,7 +313,15 @@ final class UserSchedule {
     private func save() {
         defaults.set(wakeTimeMinutes, forKey: wakeKey)
         defaults.set(bedTimeMinutes, forKey: bedKey)
-        defaults.set(smartRemindersEnabled, forKey: remindersKey)
+        defaults.set(notificationsEnabled, forKey: remindersKey)
+    }
+
+    private func saveSlotToggles() {
+        defaults.set(slotAfterWakeEnabled, forKey: slotToggleKeys[0])
+        defaults.set(slotMorningEnabled, forKey: slotToggleKeys[1])
+        defaults.set(slotDaytimeEnabled, forKey: slotToggleKeys[2])
+        defaults.set(slotEveningEnabled, forKey: slotToggleKeys[3])
+        defaults.set(slotBeforeBedEnabled, forKey: slotToggleKeys[4])
     }
 
     /// Update from onboarding data

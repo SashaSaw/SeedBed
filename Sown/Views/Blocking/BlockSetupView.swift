@@ -53,12 +53,16 @@ struct BlockSetupView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") {
-                        Feedback.buttonPress()
-                        dismiss()
+                    HStack(spacing: 12) {
+                        HelpButton(section: .blocking)
+
+                        Button("Done") {
+                            Feedback.buttonPress()
+                            dismiss()
+                        }
+                        .font(.custom("PatrickHand-Regular", size: 16))
+                        .foregroundStyle(JournalTheme.Colors.inkBlue)
                     }
-                    .font(.custom("PatrickHand-Regular", size: 16))
-                    .foregroundStyle(JournalTheme.Colors.inkBlue)
                 }
             }
             .onChange(of: blockSettings.isEnabled) { _, isEnabled in
@@ -140,8 +144,6 @@ struct BlockSetupView: View {
     // MARK: - Master Toggle
 
     private var masterToggle: some View {
-        let selectedCount = screenTimeManager.activitySelection.applicationTokens.count
-            + screenTimeManager.activitySelection.categoryTokens.count
         let isLocked = blockSettings.isEnabled && blockSettings.isCurrentlyActive
 
         return VStack(spacing: 0) {
@@ -156,7 +158,7 @@ struct BlockSetupView: View {
                             .font(.custom("PatrickHand-Regular", size: 13))
                             .foregroundStyle(JournalTheme.Colors.negativeRedDark)
                     } else {
-                        Text(blockSettings.isEnabled ? "Active · \(selectedCount) selected" : "Disabled")
+                        Text(blockSettings.isEnabled ? "Active · \(blockSettings.selectionSummary) selected" : "Disabled")
                             .font(.custom("PatrickHand-Regular", size: 13))
                             .foregroundStyle(blockSettings.isEnabled ? JournalTheme.Colors.successGreen : JournalTheme.Colors.completedGray)
                     }

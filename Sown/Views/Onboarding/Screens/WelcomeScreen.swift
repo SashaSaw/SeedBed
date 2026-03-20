@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct WelcomeScreen: View {
     let onContinue: () -> Void
@@ -70,6 +71,18 @@ struct WelcomeScreen: View {
             withAnimation(.easeOut(duration: 0.5).delay(0.7)) { showSubtitle = true }
             withAnimation(.easeOut(duration: 0.5).delay(1.0)) { showPromise = true }
             withAnimation(.easeOut(duration: 0.5).delay(1.3)) { showButton = true }
+
+            // Pre-warm the keyboard so tapping the name field on the next screen
+            // doesn't hang while iOS lazily loads the keyboard framework.
+            DispatchQueue.main.async {
+                let field = UITextField(frame: .zero)
+                guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                      let window = windowScene.windows.first else { return }
+                window.addSubview(field)
+                field.becomeFirstResponder()
+                field.resignFirstResponder()
+                field.removeFromSuperview()
+            }
         }
     }
 }

@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// Reusable card showing smart reminder settings
-/// Used in onboarding ScheduleScreen and in the main app settings
-struct SmartReminderSettingsCard: View {
+/// Settings card for configuring per-slot notification times and toggles.
+/// Each time slot corresponds to a habit schedule time (After Wake, Morning, etc.)
+struct NotificationSettingsCard: View {
     @State private var schedule = UserSchedule.shared
     @State private var editingReminderIndex: Int? = nil
 
@@ -14,38 +14,39 @@ struct SmartReminderSettingsCard: View {
                     .font(.custom("PatrickHand-Regular", size: 18))
                     .foregroundStyle(JournalTheme.Colors.amber)
 
-                Text("Smart Reminders")
+                Text("Notifications")
                     .font(.custom("PatrickHand-Regular", size: 17))
                     .foregroundStyle(JournalTheme.Colors.inkBlack)
 
                 Spacer()
 
-                Toggle("", isOn: $schedule.smartRemindersEnabled)
+                Toggle("", isOn: $schedule.notificationsEnabled)
                     .tint(JournalTheme.Colors.amber)
                     .labelsHidden()
-                    .onChange(of: schedule.smartRemindersEnabled) { _, _ in
+                    .onChange(of: schedule.notificationsEnabled) { _, _ in
                         Feedback.selection()
                     }
             }
 
-            if schedule.smartRemindersEnabled {
+            if schedule.notificationsEnabled {
                 // Explanation
-                Text("Tap a reminder to change its time.")
+                Text("Each habit is notified at its assigned time slot. Tap a slot to change its time.")
                     .font(.custom("PatrickHand-Regular", size: 13))
                     .foregroundStyle(JournalTheme.Colors.completedGray)
                     .fixedSize(horizontal: false, vertical: true)
 
-                // Reminder timeline
+                // Slot timeline
                 VStack(alignment: .leading, spacing: 10) {
                     ForEach(Array(schedule.allReminderSlots.enumerated()), id: \.offset) { index, slot in
                         VStack(alignment: .leading, spacing: 0) {
-                            reminderRow(
-                                number: index + 1,
+                            slotRow(
+                                index: index,
                                 time: formatMinutes(slot.minutes),
                                 label: slot.label,
-                                description: reminderDescription(for: index),
+                                description: slotDescription(for: index),
                                 isEditing: editingReminderIndex == index,
-                                hasOverride: schedule.hasOverride(for: index)
+                                hasOverride: schedule.hasOverride(for: index),
+                                isEnabled: schedule.isSlotEnabled(index)
                             )
                             .contentShape(Rectangle())
                             .onTapGesture {
@@ -101,10 +102,10 @@ struct SmartReminderSettingsCard: View {
             RoundedRectangle(cornerRadius: 12)
                 .strokeBorder(JournalTheme.Colors.lineLight, lineWidth: 1)
         )
-        .onChange(of: schedule.smartRemindersEnabled) { _, newValue in
+        .onChange(of: schedule.notificationsEnabled) { _, newValue in
             if !newValue {
                 Task {
-                    await SmartReminderService.shared.cancelAllSmartReminders()
+                    await UnifiedNotificationService.shared.cancelAllHabitNotifications()
                 }
             }
         }
@@ -112,24 +113,38 @@ struct SmartReminderSettingsCard: View {
 
     // MARK: - Row
 
-    private func reminderRow(number: Int, time: String, label: String, description: String, isEditing: Bool, hasOverride: Bool) -> some View {
+    private func slotRow(index: Int, time: String, label: String, description: String, isEditing: Bool, hasOverride: Bool, isEnabled: Bool) -> some View {
         HStack(alignment: .top, spacing: 12) {
+            // Per-slot toggle
+            Toggle("", isOn: Binding(
+                get: { schedule.isSlotEnabled(index) },
+                set: { newValue in
+                    Feedback.selection()
+                    schedule.setSlotEnabled(index, enabled: newValue)
+                    NotificationCenter.default.post(name: .smartRemindersChanged, object: nil)
+                }
+            ))
+            .tint(JournalTheme.Colors.amber)
+            .labelsHidden()
+            .scaleEffect(0.8)
+            .frame(width: 36)
+
             // Time badge
             HStack(spacing: 4) {
                 Text(time)
                     .font(.system(size: 12, weight: .medium, design: .monospaced))
-                    .foregroundStyle(isEditing ? JournalTheme.Colors.inkBlue : JournalTheme.Colors.amber)
+                    .foregroundStyle(isEditing ? JournalTheme.Colors.inkBlue : (isEnabled ? JournalTheme.Colors.amber : JournalTheme.Colors.completedGray))
                 if hasOverride {
                     Image(systemName: "pencil.circle.fill")
                         .font(.system(size: 8))
                         .foregroundStyle(JournalTheme.Colors.amber)
                 }
             }
-            .frame(width: 76, alignment: .trailing)
+            .frame(width: 68, alignment: .trailing)
 
             // Dot connector
             Circle()
-                .fill(isEditing ? JournalTheme.Colors.inkBlue : JournalTheme.Colors.amber)
+                .fill(isEditing ? JournalTheme.Colors.inkBlue : (isEnabled ? JournalTheme.Colors.amber : JournalTheme.Colors.completedGray))
                 .frame(width: 8, height: 8)
                 .padding(.top, 4)
 
@@ -137,7 +152,7 @@ struct SmartReminderSettingsCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
                     .font(.custom("PatrickHand-Regular", size: 14))
-                    .foregroundStyle(JournalTheme.Colors.inkBlack)
+                    .foregroundStyle(isEnabled ? JournalTheme.Colors.inkBlack : JournalTheme.Colors.completedGray)
                 Text(description)
                     .font(.custom("PatrickHand-Regular", size: 12))
                     .foregroundStyle(JournalTheme.Colors.completedGray)
@@ -170,13 +185,13 @@ struct SmartReminderSettingsCard: View {
         )
     }
 
-    private func reminderDescription(for index: Int) -> String {
+    private func slotDescription(for index: Int) -> String {
         switch index {
-        case 0: return "Write any tasks and start morning habits"
-        case 1: return "Reminder to complete morning habits"
-        case 2: return "Check-in on daytime habits"
-        case 3: return "Finish hobbies and evening habits"
-        case 4: return "Final habits before winding down"
+        case 0: return "Notify for habits after waking up"
+        case 1: return "Notify for morning habits"
+        case 2: return "Notify for daytime habits"
+        case 3: return "Notify for evening habits"
+        case 4: return "Notify for before-bed habits"
         default: return ""
         }
     }

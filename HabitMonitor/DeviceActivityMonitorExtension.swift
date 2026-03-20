@@ -40,7 +40,16 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
         super.intervalDidStart(for: activity)
 
         // Check if this is a blocking schedule (not a habit monitoring activity)
-        guard activity.rawValue == "sown.blocking" else { return }
+        guard activity.rawValue == "sown.blocking" || activity.rawValue.hasPrefix("sown.block.") else { return }
+
+        // Day-of-week guard for per-day activities
+        if activity.rawValue.hasPrefix("sown.block.") {
+            let parts = activity.rawValue.split(separator: ".")
+            if parts.count >= 3, let dayOfWeek = Int(parts[2]) {
+                let currentWeekday = Calendar.current.component(.weekday, from: Date())
+                guard dayOfWeek == currentWeekday else { return }
+            }
+        }
 
         // Load the saved selection and apply shields
         guard let selection = loadSelection() else { return }
@@ -60,7 +69,16 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
         super.intervalDidEnd(for: activity)
 
         // Check if this is a blocking schedule
-        guard activity.rawValue == "sown.blocking" else { return }
+        guard activity.rawValue == "sown.blocking" || activity.rawValue.hasPrefix("sown.block.") else { return }
+
+        // Day-of-week guard for per-day activities
+        if activity.rawValue.hasPrefix("sown.block.") {
+            let parts = activity.rawValue.split(separator: ".")
+            if parts.count >= 3, let dayOfWeek = Int(parts[2]) {
+                let currentWeekday = Calendar.current.component(.weekday, from: Date())
+                guard dayOfWeek == currentWeekday else { return }
+            }
+        }
 
         // Remove all shields when the schedule ends
         store.shield.applications = nil

@@ -12,9 +12,9 @@ func formatScreenTimeMinutes(_ minutes: Int) -> String {
     return m == 0 ? "\(h)h 0m" : "\(h)h \(m)m"
 }
 
-/// UI section for linking a habit to a Screen Time app with a usage target
+/// UI section for linking a habit to Screen Time apps with a usage target
 struct ScreenTimeHabitSection: View {
-    @Binding var appToken: ApplicationToken?
+    @Binding var appTokens: Set<ApplicationToken>
     @Binding var targetMinutes: Int
     var onTokenSelected: () -> Void = {}
 
@@ -41,13 +41,21 @@ struct ScreenTimeHabitSection: View {
                 } label: {
                     HStack {
                         Image(systemName: "hourglass")
-                            .foregroundStyle(appToken != nil ? JournalTheme.Colors.purple : JournalTheme.Colors.completedGray)
+                            .foregroundStyle(!appTokens.isEmpty ? JournalTheme.Colors.purple : JournalTheme.Colors.completedGray)
 
-                        if appToken != nil {
-                            Text("App selected")
+                        if !appTokens.isEmpty {
+                            FlowLayout(spacing: 4) {
+                                ForEach(Array(appTokens), id: \.self) { token in
+                                    Label(token)
+                                        .labelStyle(.iconOnly)
+                                        .scaleEffect(0.7)
+                                        .frame(width: 28, height: 28)
+                                }
+                            }
+                            Text("\(appTokens.count) app\(appTokens.count == 1 ? "" : "s") selected")
                                 .foregroundStyle(JournalTheme.Colors.inkBlack)
                         } else {
-                            Text("Select an app")
+                            Text("Select apps")
                                 .foregroundStyle(JournalTheme.Colors.completedGray)
                         }
 
@@ -70,8 +78,8 @@ struct ScreenTimeHabitSection: View {
                 }
                 .buttonStyle(.plain)
 
-                // Target minutes (only if app selected)
-                if appToken != nil {
+                // Target minutes (only if apps selected)
+                if !appTokens.isEmpty {
                     HStack {
                         Text("Target:")
                             .font(JournalTheme.Fonts.habitName())
@@ -123,11 +131,11 @@ struct ScreenTimeHabitSection: View {
                     )
                 }
 
-                // Clear selection button (if app selected)
-                if appToken != nil {
+                // Clear selection button (if apps selected)
+                if !appTokens.isEmpty {
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) {
-                            appToken = nil
+                            appTokens = []
                             selection = FamilyActivitySelection()
                         }
                     } label: {
@@ -145,10 +153,10 @@ struct ScreenTimeHabitSection: View {
         }
         .familyActivityPicker(isPresented: $showingAppPicker, selection: $selection)
         .onChange(of: selection) { _, newSelection in
-            // Take only the first app token (single app selection)
-            if let firstToken = newSelection.applicationTokens.first {
+            let tokens = newSelection.applicationTokens
+            if !tokens.isEmpty {
                 withAnimation(.easeInOut(duration: 0.2)) {
-                    appToken = firstToken
+                    appTokens = tokens
                 }
                 onTokenSelected()
             }
@@ -183,14 +191,14 @@ struct ScreenTimeProgressBadge: View {
 
 /// Preview wrapper for ScreenTimeHabitSection
 private struct ScreenTimeHabitSectionPreview: View {
-    @State private var appToken: ApplicationToken? = nil
+    @State private var appTokens: Set<ApplicationToken> = []
     @State private var targetMinutes: Int = 30
 
     var body: some View {
         ScrollView {
             VStack {
                 ScreenTimeHabitSection(
-                    appToken: $appToken,
+                    appTokens: $appTokens,
                     targetMinutes: $targetMinutes
                 )
                 .padding()

@@ -64,7 +64,8 @@ final class ScreenTimeUsageManager {
 
         // Register DeviceActivityEvents for each habit
         for habit in linkedHabits {
-            guard let appToken = habit.screenTimeAppToken,
+            let appTokens = habit.screenTimeAppTokens
+            guard !appTokens.isEmpty,
                   let targetMinutes = habit.screenTimeTarget else { continue }
 
             let activityName = DeviceActivityName(rawValue: "\(habitActivityPrefix)\(habit.id.uuidString)")
@@ -78,7 +79,7 @@ final class ScreenTimeUsageManager {
 
             // Create event that triggers when usage threshold is reached
             let thresholdEvent = DeviceActivityEvent(
-                applications: [appToken],
+                applications: appTokens,
                 threshold: DateComponents(minute: targetMinutes)
             )
 

@@ -28,7 +28,7 @@ struct AddNiceToDoView: View {
 
     // Screen Time measurement
     @State private var screenTimeManager = ScreenTimeManager.shared
-    @State private var screenTimeAppToken: ApplicationToken? = nil
+    @State private var screenTimeAppTokens: Set<ApplicationToken> = []
     @State private var screenTimeTargetMinutes: Int = 30
 
     // Step 4: Habit Prompt
@@ -371,6 +371,8 @@ struct AddNiceToDoView: View {
                 healthKitCriteriaInput
             case .screenTime:
                 screenTimeCriteriaInput
+            case .appBlock:
+                EmptyView()
             }
 
             // Skip link
@@ -486,7 +488,7 @@ struct AddNiceToDoView: View {
 
     private var screenTimeCriteriaInput: some View {
         ScreenTimeHabitSection(
-            appToken: $screenTimeAppToken,
+            appTokens: $screenTimeAppTokens,
             targetMinutes: $screenTimeTargetMinutes,
             onTokenSelected: {
                 markCriteriaSet()
@@ -671,10 +673,12 @@ struct AddNiceToDoView: View {
             healthKitMetricRaw = healthKitMetric?.rawValue
             healthKitTargetValue = healthKitMetric != nil ? healthKitTarget : nil
         case .screenTime:
-            screenTimeTokenData = screenTimeAppToken != nil
-                ? try? PropertyListEncoder().encode(screenTimeAppToken)
+            screenTimeTokenData = !screenTimeAppTokens.isEmpty
+                ? try? PropertyListEncoder().encode(screenTimeAppTokens)
                 : nil
-            screenTimeTargetValue = screenTimeAppToken != nil ? screenTimeTargetMinutes : nil
+            screenTimeTargetValue = !screenTimeAppTokens.isEmpty ? screenTimeTargetMinutes : nil
+        case .appBlock:
+            break
         }
 
         let _ = store.addHabit(

@@ -218,25 +218,35 @@ extension Habit {
 // MARK: - Screen Time Extensions
 
 extension Habit {
-    /// Computed property to get/set Screen Time ApplicationToken
-    var screenTimeAppToken: ApplicationToken? {
+    /// Computed property to get/set Screen Time ApplicationTokens (supports multiple apps)
+    var screenTimeAppTokens: Set<ApplicationToken> {
         get {
-            guard let data = screenTimeAppTokenData else { return nil }
-            return try? PropertyListDecoder().decode(ApplicationToken.self, from: data)
+            guard let data = screenTimeAppTokenData else { return [] }
+            return (try? PropertyListDecoder().decode(Set<ApplicationToken>.self, from: data)) ?? {
+                // Fallback: try decoding as single token for backward compatibility
+                if let single = try? PropertyListDecoder().decode(ApplicationToken.self, from: data) {
+                    return [single]
+                }
+                return []
+            }()
         }
         set {
-            screenTimeAppTokenData = try? PropertyListEncoder().encode(newValue)
+            if newValue.isEmpty {
+                screenTimeAppTokenData = nil
+            } else {
+                screenTimeAppTokenData = try? PropertyListEncoder().encode(newValue)
+            }
         }
     }
 
     /// Whether this habit is linked to a Screen Time app
     var isScreenTimeLinked: Bool {
-        screenTimeAppToken != nil && screenTimeTarget != nil
+        !screenTimeAppTokens.isEmpty && screenTimeTarget != nil
     }
 
     /// Whether this negative habit should auto-slip when Screen Time limit is exceeded
     var screenTimeAutoSlip: Bool {
-        type == .negative && screenTimeAppToken != nil && screenTimeTarget != nil
+        type == .negative && !screenTimeAppTokens.isEmpty && screenTimeTarget != nil
     }
 }
 

@@ -76,6 +76,10 @@ struct TodayContentView: View {
     @State private var selectedHabitIdsForGroup: Set<UUID> = []
     @State private var showingAddGroup: Bool = false
 
+    // Auto-slip alert for automatic Don't Dos
+    @State private var showAutoSlipAlert: Bool = false
+    @State private var autoSlipAlertHabit: Habit? = nil
+
     // Morning tasks prompt
     @State private var showingMorningTasks: Bool = false
     @AppStorage("lastMorningPromptDate") private var lastMorningPromptDate: String = ""
@@ -534,6 +538,21 @@ struct TodayContentView: View {
             }
         } message: {
             Text("The group '\(groupToDeleteAfterHabit?.name ?? "")' is now empty. Would you like to delete it?")
+        }
+        .alert("Auto-Tracked Don't Do", isPresented: $showAutoSlipAlert) {
+            Button("OK", role: .cancel) {
+                autoSlipAlertHabit = nil
+            }
+        } message: {
+            if let habit = autoSlipAlertHabit {
+                if habit.isScreenTimeLinked, let target = habit.screenTimeTarget {
+                    Text("This Don't Do automatically tracks from Screen Time (\(formatScreenTimeMinutes(target))). Long press to edit.")
+                } else if habit.triggersAppBlockSlip {
+                    Text("This Don't Do automatically tracks from app blocking. Long press to edit.")
+                } else {
+                    Text("This Don't Do is automatically tracked. Long press to edit.")
+                }
+            }
         }
         .onAppear {
             // Lock yesterday's good day on app launch (only once per session)
@@ -1322,13 +1341,24 @@ struct TodayContentView: View {
                                 // If locked, do nothing - lock icon already indicates it can't be undone
                             },
                             onArchive: { store.archiveHabit(habit) },
-                            onTap: { selectedHabit = habit },
-                            onLongPress: {
-                                withAnimation(.easeInOut(duration: 0.25)) {
-                                    isSelectingForGroup = true
-                                    selectedHabitIdsForGroup = [habit.id]
+                            onTap: {
+                                let isAutomatic = habit.isScreenTimeLinked || habit.triggersAppBlockSlip
+                                if isAutomatic {
+                                    autoSlipAlertHabit = habit
+                                    showAutoSlipAlert = true
+                                } else {
+                                    // Manual Don't Do: toggle slip status
+                                    let completed = habit.isCompleted(for: selectedDate)
+                                    if completed {
+                                        if !isSlipLocked {
+                                            store.setCompletion(for: habit, completed: false, on: selectedDate)
+                                        }
+                                    } else {
+                                        store.setCompletion(for: habit, completed: true, on: selectedDate)
+                                    }
                                 }
                             },
+                            onLongPress: { selectedHabit = habit },
                             isLocked: isSlipLocked
                         )
                     }
@@ -1920,12 +1950,10 @@ struct NegativeHabitLinedRow: View {
 
             // Main content
             HStack(spacing: 12) {
-                // Bullet dot
-                Circle()
-                    .fill(isCompleted
-                        ? JournalTheme.Colors.negativeRedDark
-                        : JournalTheme.Colors.inkBlack)
-                    .frame(width: 6, height: 6)
+                // Checkbox indicator
+                Image(systemName: isCompleted ? "xmark.square.fill" : "square")
+                    .font(.system(size: 18))
+                    .foregroundStyle(isCompleted ? JournalTheme.Colors.negativeRedDark : JournalTheme.Colors.inkBlack)
 
                 // Habit name
                 Text(habit.name)

@@ -28,6 +28,9 @@ struct BlockScheduleEntry: Codable, Identifiable, Hashable {
 final class BlockSettings {
     static let shared = BlockSettings()
 
+    /// Guard flag to prevent recursive sync between entries and legacy fields
+    private var isSyncing = false
+
     /// Whether blocking is enabled globally
     var isEnabled: Bool {
         didSet { save() }
@@ -36,7 +39,7 @@ final class BlockSettings {
     /// Block schedule start time (minutes from midnight) — legacy, kept for backward compat
     var scheduleStartMinutes: Int {
         didSet {
-            // Sync entries when legacy field changes
+            guard !isSyncing else { return }
             syncEntriesToLegacy()
             save()
         }
@@ -45,6 +48,7 @@ final class BlockSettings {
     /// Block schedule end time (minutes from midnight) — legacy, kept for backward compat
     var scheduleEndMinutes: Int {
         didSet {
+            guard !isSyncing else { return }
             syncEntriesToLegacy()
             save()
         }
@@ -53,6 +57,7 @@ final class BlockSettings {
     /// Which days of the week blocking is active (1=Sun, 7=Sat) — legacy, kept for backward compat
     var activeDays: Set<Int> {
         didSet {
+            guard !isSyncing else { return }
             syncEntriesToLegacy()
             save()
         }
@@ -394,12 +399,14 @@ final class BlockSettings {
 
     /// Sync legacy fields from current entries (used when entries change individually)
     private func syncLegacyFromEntries() {
+        isSyncing = true
         activeDays = scheduledDays
         // Use the first entry's times as the legacy representative
         if let first = scheduleEntries.first {
             scheduleStartMinutes = first.startMinutes
             scheduleEndMinutes = first.endMinutes
         }
+        isSyncing = false
     }
 
     func formatMinutes(_ minutes: Int) -> String {

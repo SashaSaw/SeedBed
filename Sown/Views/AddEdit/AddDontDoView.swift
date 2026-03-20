@@ -7,6 +7,7 @@ import ManagedSettings
 enum DontDoMeasurementType: String, CaseIterable {
     case manual = "Manual"
     case screenTime = "Screen Time"
+    case appBlock = "App Block"
 }
 
 /// Simple don't-do habit creation with optional Screen Time tracking.
@@ -20,7 +21,7 @@ struct AddDontDoView: View {
 
     // Screen Time state
     @State private var measurementType: DontDoMeasurementType = .manual
-    @State private var screenTimeAppToken: ApplicationToken? = nil
+    @State private var screenTimeAppTokens: Set<ApplicationToken> = []
     @State private var screenTimeTargetMinutes: Int = 15
     @State private var blockAfterLimit: Bool = false
     @State private var showingAppPicker = false
@@ -36,12 +37,12 @@ struct AddDontDoView: View {
 
     /// Whether Screen Time selection is complete
     private var isScreenTimeConfigured: Bool {
-        measurementType == .screenTime && screenTimeAppToken != nil
+        measurementType == .screenTime && !screenTimeAppTokens.isEmpty
     }
 
     /// Whether form can be submitted
     private var canSubmit: Bool {
-        hasName && (measurementType == .manual || isScreenTimeConfigured)
+        hasName && (measurementType == .manual || measurementType == .appBlock || isScreenTimeConfigured)
     }
 
     /// Quick-pick suggestions for common don't-do habits
@@ -123,10 +124,10 @@ struct AddDontDoView: View {
         }
         .familyActivityPicker(isPresented: $showingAppPicker, selection: $familySelection)
         .onChange(of: familySelection) { _, newSelection in
-            // Take only the first app token
-            if let firstToken = newSelection.applicationTokens.first {
+            let tokens = newSelection.applicationTokens
+            if !tokens.isEmpty {
                 withAnimation(.easeInOut(duration: 0.2)) {
-                    screenTimeAppToken = firstToken
+                    screenTimeAppTokens = tokens
                 }
             }
         }
@@ -222,16 +223,22 @@ struct AddDontDoView: View {
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) {
                             measurementType = type
-                            if type == .manual {
-                                // Clear Screen Time selection when switching to manual
-                                screenTimeAppToken = nil
+                            if type == .manual || type == .appBlock {
+                                // Clear Screen Time selection when switching away
+                                screenTimeAppTokens = []
                                 familySelection = FamilyActivitySelection()
                             }
                         }
                         Feedback.selection()
                     } label: {
                         HStack(spacing: 6) {
-                            Image(systemName: type == .manual ? "hand.tap" : "hourglass")
+                            Image(systemName: {
+                                switch type {
+                                case .manual: return "hand.tap"
+                                case .screenTime: return "hourglass"
+                                case .appBlock: return "lock.shield"
+                                }
+                            }())
                                 .font(.system(size: 12))
                             Text(type.rawValue)
                                 .font(JournalTheme.Fonts.habitCriteria())
@@ -259,17 +266,19 @@ struct AddDontDoView: View {
                 Spacer()
             }
 
-            if measurementType == .manual {
-                Text("Tap to mark when you slip")
-                    .font(JournalTheme.Fonts.habitCriteria())
-                    .foregroundStyle(JournalTheme.Colors.completedGray)
-                    .italic()
-            } else {
-                Text("Auto-fail when you exceed time limit")
-                    .font(JournalTheme.Fonts.habitCriteria())
-                    .foregroundStyle(JournalTheme.Colors.completedGray)
-                    .italic()
+            Group {
+                switch measurementType {
+                case .manual:
+                    Text("Tap to mark when you slip")
+                case .screenTime:
+                    Text("Auto-fail when you exceed time limit")
+                case .appBlock:
+                    Text("Auto-slips when you bypass your app block")
+                }
             }
+            .font(JournalTheme.Fonts.habitCriteria())
+            .foregroundStyle(JournalTheme.Colors.completedGray)
+            .italic()
         }
     }
 
@@ -283,13 +292,21 @@ struct AddDontDoView: View {
             } label: {
                 HStack {
                     Image(systemName: "hourglass")
-                        .foregroundStyle(screenTimeAppToken != nil ? JournalTheme.Colors.negativeRedDark : JournalTheme.Colors.completedGray)
+                        .foregroundStyle(!screenTimeAppTokens.isEmpty ? JournalTheme.Colors.negativeRedDark : JournalTheme.Colors.completedGray)
 
-                    if screenTimeAppToken != nil {
-                        Text("App selected")
+                    if !screenTimeAppTokens.isEmpty {
+                        FlowLayout(spacing: 4) {
+                            ForEach(Array(screenTimeAppTokens), id: \.self) { token in
+                                Label(token)
+                                    .labelStyle(.iconOnly)
+                                    .scaleEffect(0.7)
+                                    .frame(width: 28, height: 28)
+                            }
+                        }
+                        Text("\(screenTimeAppTokens.count) app\(screenTimeAppTokens.count == 1 ? "" : "s") selected")
                             .foregroundStyle(JournalTheme.Colors.inkBlack)
                     } else {
-                        Text("Select an app to limit")
+                        Text("Select apps to limit")
                             .foregroundStyle(JournalTheme.Colors.completedGray)
                     }
 
@@ -313,7 +330,7 @@ struct AddDontDoView: View {
             .buttonStyle(.plain)
 
             // Time limit (only if app selected)
-            if screenTimeAppToken != nil {
+            if !screenTimeAppTokens.isEmpty {
                 HStack {
                     Text("Time limit:")
                         .font(JournalTheme.Fonts.habitName())
@@ -391,7 +408,7 @@ struct AddDontDoView: View {
                 // Clear selection button
                 Button {
                     withAnimation(.easeInOut(duration: 0.2)) {
-                        screenTimeAppToken = nil
+                        screenTimeAppTokens = []
                         familySelection = FamilyActivitySelection()
                     }
                 } label: {
@@ -439,9 +456,9 @@ struct AddDontDoView: View {
         }
         addedHabitName = displayName.isEmpty ? trimmedName : displayName
 
-        // Encode Screen Time token if selected
-        let tokenData: Data? = if let token = screenTimeAppToken {
-            try? PropertyListEncoder().encode(token)
+        // Encode Screen Time tokens if selected
+        let tokenData: Data? = if !screenTimeAppTokens.isEmpty {
+            try? PropertyListEncoder().encode(screenTimeAppTokens)
         } else {
             nil
         }
@@ -455,6 +472,7 @@ struct AddDontDoView: View {
             isHobby: false,
             notificationsEnabled: false,
             enableNotesPhotos: false,
+            triggersAppBlockSlip: measurementType == .appBlock,
             screenTimeAppTokenData: tokenData,
             screenTimeTarget: measurementType == .screenTime ? screenTimeTargetMinutes : nil
         )

@@ -24,7 +24,7 @@ struct HabitDetailView: View {
     @State private var screenTimeManager = ScreenTimeManager.shared
 
     // Screen Time editing state
-    @State private var editingScreenTimeToken: ApplicationToken? = nil
+    @State private var editingScreenTimeTokens: Set<ApplicationToken> = []
     @State private var editingScreenTimeTarget: Int = 30
 
     // Selected measurement type (allows selection before configuring)
@@ -528,7 +528,9 @@ struct HabitDetailView: View {
 
     /// Returns the current measurement type for this habit
     private var currentMeasurementType: MeasurementType {
-        if habit.isHealthKitLinked {
+        if habit.triggersAppBlockSlip {
+            return .appBlock
+        } else if habit.isHealthKitLinked {
             return .healthKit
         } else if habit.isScreenTimeLinked {
             return .screenTime
@@ -536,16 +538,25 @@ struct HabitDetailView: View {
         return .manual
     }
 
-    /// Available measurement types based on authorization status
+    /// Available measurement types based on authorization status and habit type
     private var availableMeasurementTypes: [MeasurementType] {
-        var types: [MeasurementType] = [.manual]
-        if healthKitManager.isAuthorized {
-            types.append(.healthKit)
+        if habit.type == .negative {
+            var types: [MeasurementType] = [.manual]
+            if screenTimeManager.isAuthorized {
+                types.append(.screenTime)
+            }
+            types.append(.appBlock)
+            return types
+        } else {
+            var types: [MeasurementType] = [.manual]
+            if healthKitManager.isAuthorized {
+                types.append(.healthKit)
+            }
+            if screenTimeManager.isAuthorized {
+                types.append(.screenTime)
+            }
+            return types
         }
-        if screenTimeManager.isAuthorized {
-            types.append(.screenTime)
-        }
-        return types
     }
 
     /// Summary text for the measurement type row
@@ -567,6 +578,8 @@ struct HabitDetailView: View {
                 return "Screen Time (\(formatScreenTimeMinutes(target)))"
             }
             return "Screen Time"
+        case .appBlock:
+            return "App Block"
         }
     }
 
@@ -751,6 +764,8 @@ struct HabitDetailView: View {
                 healthKitEditorContent
             case .screenTime:
                 screenTimeEditorContent
+            case .appBlock:
+                appBlockEditorContent
             }
         }
         .onAppear {
@@ -822,10 +837,10 @@ struct HabitDetailView: View {
     private var screenTimeEditorContent: some View {
         VStack(alignment: .leading, spacing: 12) {
             ScreenTimeHabitSection(
-                appToken: Binding(
-                    get: { habit.screenTimeAppToken },
-                    set: { newToken in
-                        habit.screenTimeAppToken = newToken
+                appTokens: Binding(
+                    get: { habit.screenTimeAppTokens },
+                    set: { newTokens in
+                        habit.screenTimeAppTokens = newTokens
                         store.updateHabit(habit)
                     }
                 ),
@@ -863,6 +878,30 @@ struct HabitDetailView: View {
         }
     }
 
+    /// App Block editor content (simple informational text)
+    @ViewBuilder
+    private var appBlockEditorContent: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "lock.shield")
+                    .foregroundStyle(JournalTheme.Colors.negativeRedDark)
+                Text("App Block")
+                    .font(JournalTheme.Fonts.habitName())
+                    .foregroundStyle(JournalTheme.Colors.inkBlack)
+            }
+
+            Text("Auto-slips when you bypass your app block")
+                .font(JournalTheme.Fonts.habitCriteria())
+                .foregroundStyle(JournalTheme.Colors.completedGray)
+                .italic()
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(JournalTheme.Colors.paperLight)
+        )
+    }
+
     /// Changes the measurement type and clears previous measurement data
     private func changeMeasurementType(to newType: MeasurementType) {
         // Clear previous measurement data
@@ -874,8 +913,10 @@ struct HabitDetailView: View {
             habit.healthKitMetricType = nil
             habit.healthKitTarget = nil
         case .screenTime:
-            habit.screenTimeAppToken = nil
+            habit.screenTimeAppTokens = []
             habit.screenTimeTarget = nil
+        case .appBlock:
+            habit.triggersAppBlockSlip = false
         }
 
         // Set up for new type if needed
@@ -888,6 +929,13 @@ struct HabitDetailView: View {
         case .screenTime:
             // Will be configured in the editor
             break
+        case .appBlock:
+            habit.triggersAppBlockSlip = true
+            // Clear healthKit/screenTime data
+            habit.healthKitMetricType = nil
+            habit.healthKitTarget = nil
+            habit.screenTimeAppTokens = []
+            habit.screenTimeTarget = nil
         }
 
         store.updateHabit(habit)

@@ -8,6 +8,7 @@ enum MeasurementType: String, CaseIterable {
     case manual = "Manual"
     case healthKit = "Health App"
     case screenTime = "Screen Time"
+    case appBlock = "App Block"
 }
 
 /// Streamlined must-do habit creation with progressive disclosure
@@ -30,7 +31,7 @@ struct AddMustDoView: View {
 
     // Screen Time measurement
     @State private var screenTimeManager = ScreenTimeManager.shared
-    @State private var screenTimeAppToken: ApplicationToken? = nil
+    @State private var screenTimeAppTokens: Set<ApplicationToken> = []
     @State private var screenTimeTargetMinutes: Int = 30
 
     // Step 3: Habit Prompt
@@ -254,6 +255,8 @@ struct AddMustDoView: View {
                 healthKitCriteriaInput
             case .screenTime:
                 screenTimeCriteriaInput
+            case .appBlock:
+                EmptyView()
             }
 
             // Skip link
@@ -369,7 +372,7 @@ struct AddMustDoView: View {
 
     private var screenTimeCriteriaInput: some View {
         ScreenTimeHabitSection(
-            appToken: $screenTimeAppToken,
+            appTokens: $screenTimeAppTokens,
             targetMinutes: $screenTimeTargetMinutes,
             onTokenSelected: {
                 markCriteriaSet()
@@ -556,10 +559,12 @@ struct AddMustDoView: View {
             healthKitMetricRaw = healthKitMetric?.rawValue
             healthKitTargetValue = healthKitMetric != nil ? healthKitTarget : nil
         case .screenTime:
-            screenTimeTokenData = screenTimeAppToken != nil
-                ? try? PropertyListEncoder().encode(screenTimeAppToken)
+            screenTimeTokenData = !screenTimeAppTokens.isEmpty
+                ? try? PropertyListEncoder().encode(screenTimeAppTokens)
                 : nil
-            screenTimeTargetValue = screenTimeAppToken != nil ? screenTimeTargetMinutes : nil
+            screenTimeTargetValue = !screenTimeAppTokens.isEmpty ? screenTimeTargetMinutes : nil
+        case .appBlock:
+            break
         }
 
         let _ = store.addHabit(

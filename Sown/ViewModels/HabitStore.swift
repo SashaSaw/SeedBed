@@ -2,6 +2,7 @@ import Foundation
 import SwiftData
 import SwiftUI
 import UserNotifications
+import WidgetKit
 
 @Observable
 final class HabitStore {
@@ -30,6 +31,7 @@ final class HabitStore {
         fetchGroups()
         fetchDayRecords()
         fetchEndOfDayNotes()
+        WidgetDataService.updateWidgetData(from: self)
     }
 
     /// Prefetch today's DailyLogs via a direct query so that `habit.isCompleted(for:)`
@@ -365,6 +367,7 @@ final class HabitStore {
             startScreenTimeMonitoring()
         }
 
+        WidgetDataService.updateWidgetData(from: self)
         return habit
     }
 
@@ -375,6 +378,7 @@ final class HabitStore {
 
         // Reschedule notifications (auto-scheduled based on time slots)
         refreshNotifications()
+        WidgetDataService.updateWidgetData(from: self)
     }
 
     func deleteHabit(_ habit: Habit) {
@@ -399,6 +403,7 @@ final class HabitStore {
         // Then delete from database
         modelContext.delete(habit)
         saveContext()
+        WidgetDataService.updateWidgetData(from: self)
     }
 
     /// Delete completed today-only tasks from previous days
@@ -608,6 +613,7 @@ final class HabitStore {
         completionChangeCounter += 1
         saveContext()
         refreshNotifications()
+        WidgetDataService.updateWidgetData(from: self)
 
         // Update task deadline notifications based on completion state
         if habit.isTask && habit.taskDeadlineMinutes != nil {
@@ -636,6 +642,7 @@ final class HabitStore {
         completionChangeCounter += 1
         saveContext()
         refreshNotifications()
+        WidgetDataService.updateWidgetData(from: self)
 
         // Update task deadline notifications based on completion state
         if habit.isTask && habit.taskDeadlineMinutes != nil {

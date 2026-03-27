@@ -26,9 +26,6 @@ struct SettingsView: View {
                     // Notifications section
                     NotificationSettingsCard()
 
-                    // AI Assistant
-                    AISettingsCard()
-
                     // HealthKit integration
                     HealthKitSettingsCard()
 

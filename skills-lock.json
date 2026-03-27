@@ -1,0 +1,135 @@
+{
+  "version": 1,
+  "skills": {
+    "eve-agent-memory": {
+      "source": "incept5/eve-skillpacks",
+      "sourceType": "github",
+      "computedHash": "fac305c0d9a10cffc11de060a8adafb66bffd311ca30695b338ab6b20d65e37d"
+    },
+    "eve-agent-native-design": {
+      "source": "incept5/eve-skillpacks",
+      "sourceType": "github",
+      "computedHash": "2982753f5683dff405207221e5d45bdab87e0a9426fff6b16d5dd8cd6ede4220"
+    },
+    "eve-agent-optimisation": {
+      "source": "incept5/eve-skillpacks",
+      "sourceType": "github",
+      "computedHash": "0fed85dae3d45d3fdc8189bc40139cad87e9e9a9d5c138cc9b77ce68fb0ebbff"
+    },
+    "eve-agentic-app-design": {
+      "source": "incept5/eve-skillpacks",
+      "sourceType": "github",
+      "computedHash": "15e4b0b6873a66e096c50fd3d7c444ce4615f4b7e1fa1d5a758c827a1698c374"
+    },
+    "eve-app-cli": {
+      "source": "incept5/eve-skillpacks",
+      "sourceType": "github",
+      "computedHash": "67fb1cda5435568ef25d7bf1f0d776e938139c808d58876173dce9972cdb0892"
+    },
+    "eve-auth-and-secrets": {
+      "source": "incept5/eve-skillpacks",
+      "sourceType": "github",
+      "computedHash": "cc1ef3e02ba5f442456676d000f1089788a48f083983920a85c2813f150f73d6"
+    },
+    "eve-bootstrap": {
+      "source": "incept5/eve-skillpacks",
+      "sourceType": "github",
+      "computedHash": "098c867791117d319c1f2140c730bbf13c7bdfcfcb1a0f064d4b390a6e075c42"
+    },
+    "eve-cli-primitives": {
+      "source": "incept5/eve-skillpacks",
+      "sourceType": "github",
+      "computedHash": "42c2fc5a4d2ee514bc914e3d1167feb769bb87ac95dbea20ea98370829a2eceb"
+    },
+    "eve-deploy-debugging": {
+      "source": "incept5/eve-skillpacks",
+      "sourceType": "github",
+      "computedHash": "d63266b89811ba0fdb2a2353dfe615ab3d66ca2768357805df899bd4919b0d73"
+    },
+    "eve-fullstack-app-design": {
+      "source": "incept5/eve-skillpacks",
+      "sourceType": "github",
+      "computedHash": "cf9ac44ee1d81090d0b5c2600101ed2bfe8815a055988493b7d70a43e22f3f71"
+    },
+    "eve-job-debugging": {
+      "source": "incept5/eve-skillpacks",
+      "sourceType": "github",
+      "computedHash": "f0ca5f40a96eb4eb59828e9535eca5d89669456044d7214a3e58c4160587e365"
+    },
+    "eve-job-lifecycle": {
+      "source": "incept5/eve-skillpacks",
+      "sourceType": "github",
+      "computedHash": "1cf2a2c09c9f68b25ebff20de129991cd0b39592e1160c38ad414ab5700186d0"
+    },
+    "eve-local-dev-loop": {
+      "source": "incept5/eve-skillpacks",
+      "sourceType": "github",
+      "computedHash": "315b0fdf00931ea198d6f656276376a041a144d227ac01c16145548caa767cf8"
+    },
+    "eve-manifest-authoring": {
+      "source": "incept5/eve-skillpacks",
+      "sourceType": "github",
+      "computedHash": "e944c4df2ca87a5e745b08b4958e28e9b573e1d53d95127d40ec194fbb9e9128"
+    },
+    "eve-new-project-setup": {
+      "source": "incept5/eve-skillpacks",
+      "sourceType": "github",
+      "computedHash": "7574450cfd6d9406e46a585acee9655fb7f1b20b2fb7f7237f8b8b826d4d4626"
+    },
+    "eve-orchestration": {
+      "source": "incept5/eve-skillpacks",
+      "sourceType": "github",
+      "computedHash": "6912618e6eb633863c58f423fe08b05554091c9c8f28ffb1004ded0c2a2085eb"
+    },
+    "eve-pipelines-workflows": {
+      "source": "incept5/eve-skillpacks",
+      "sourceType": "github",
+      "computedHash": "1ac6aa2ac201ce9b5472a6fe86fceed59ee19cae7ec73c625ac1d9ee957fefdd"
+    },
+    "eve-plan-implementation": {
+      "source": "incept5/eve-skillpacks",
+      "sourceType": "github",
+      "computedHash": "97fe443f4767c95390786b969578e45146362a0b485cc7881173982a52fe5823"
+    },
+    "eve-project-bootstrap": {
+      "source": "incept5/eve-skillpacks",
+      "sourceType": "github",
+      "computedHash": "5ee37265959d7e8cb7b33696d3ba7dace6836a15470896a4f3322a43359f2d14"
+    },
+    "eve-read-eve-docs": {
+      "source": "incept5/eve-skillpacks",
+      "sourceType": "github",
+      "computedHash": "5411244c3d59943528c2ffe45d811c25872b5a44d311358417df531f8cf8b652"
+    },
+    "eve-repo-upkeep": {
+      "source": "incept5/eve-skillpacks",
+      "sourceType": "github",
+      "computedHash": "a562a58ecee648fccfe6bcfd4fc33991af9eb0a9c78d12c4f1190cd1f60ab9d2"
+    },
+    "eve-se-index": {
+      "source": "incept5/eve-skillpacks",
+      "sourceType": "github",
+      "computedHash": "ca310a3d19dbe388247314fdacdf61d87127ee4335f9e651ffdbd81694b02537"
+    },
+    "eve-skill-distillation": {
+      "source": "incept5/eve-skillpacks",
+      "sourceType": "github",
+      "computedHash": "a3d2b1163c4731886e23ffac51b259187131e0a608ecaaa3ed486ce5f76fc41e"
+    },
+    "eve-troubleshooting": {
+      "source": "incept5/eve-skillpacks",
+      "sourceType": "github",
+      "computedHash": "1b8fde30d13645f9b057ead71bf8f6b562ad34bb581cf000691c4b86d8e5af6a"
+    },
+    "eve-web-ui-testing-agent-browser": {
+      "source": "incept5/eve-skillpacks",
+      "sourceType": "github",
+      "computedHash": "108fbdec46104f0bcd3994615f5dd0d990d61cce3417c936bcf72d942f75ed07"
+    },
+    "sync-horizon": {
+      "source": "incept5/eve-skillpacks",
+      "sourceType": "github",
+      "computedHash": "02d15289e6ab7a23fbd5c91fd46c20f2d2d351d78515ece4c2bc77919bb00a94"
+    }
+  }
+}

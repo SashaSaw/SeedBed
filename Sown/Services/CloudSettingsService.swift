@@ -8,6 +8,7 @@ final class CloudSettingsService {
 
     private let store = NSUbiquitousKeyValueStore.default
     private let localDefaults = UserDefaults.standard
+    private var retryTimer: Timer?
 
     // MARK: - Keys
 
@@ -19,11 +20,15 @@ final class CloudSettingsService {
         static let wakeTimeMinutes = "userWakeTimeMinutes"
         static let bedTimeMinutes = "userBedTimeMinutes"
         static let smartRemindersEnabled = "smartRemindersEnabled"
+        static let blockingEnabledFlag = "blockingEnabled"
     }
 
     // MARK: - Initialization
 
     private init() {
+        // Pull any cached iCloud data from disk before reading
+        store.synchronize()
+
         // Start observing external changes
         NotificationCenter.default.addObserver(
             self,
@@ -34,6 +39,13 @@ final class CloudSettingsService {
 
         // Check iCloud for onboarding status immediately
         checkOnboardingFromCloud()
+
+        // If onboarding wasn't restored immediately, poll iCloud for a few seconds
+        // (on reinstall, iCloud KV data may not be available until after init)
+        if !localDefaults.bool(forKey: Keys.hasCompletedOnboarding)
+            && !localDefaults.bool(forKey: "dataWipedOnReinstall") {
+            startOnboardingRetry()
+        }
     }
 
     // MARK: - Onboarding Check
@@ -44,10 +56,30 @@ final class CloudSettingsService {
         // Only check if local says we haven't onboarded
         guard !localDefaults.bool(forKey: Keys.hasCompletedOnboarding) else { return }
 
+        // Don't restore onboarding if a wipe just occurred
+        guard !localDefaults.bool(forKey: "dataWipedOnReinstall") else { return }
+
         // Check if iCloud says we have onboarded
         if store.bool(forKey: Keys.hasCompletedOnboarding) {
             localDefaults.set(true, forKey: Keys.hasCompletedOnboarding)
             print("CloudSettingsService: Restored onboarding status from iCloud")
+        }
+    }
+
+    /// Poll iCloud every 0.5s for up to 3s to catch delayed KV sync on reinstall.
+    private func startOnboardingRetry() {
+        var attempts = 0
+        retryTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] timer in
+            guard let self else { timer.invalidate(); return }
+            attempts += 1
+            self.store.synchronize()
+            self.checkOnboardingFromCloud()
+            self.restoreCloudSyncSettingIfNeeded()
+
+            if self.localDefaults.bool(forKey: Keys.hasCompletedOnboarding) || attempts >= 6 {
+                timer.invalidate()
+                self.retryTimer = nil
+            }
         }
     }
 
@@ -81,6 +113,35 @@ final class CloudSettingsService {
     /// Sync the iCloud enabled setting to cloud
     func syncCloudSyncSetting(_ enabled: Bool) {
         store.set(enabled, forKey: Keys.iCloudSyncEnabled)
+    }
+
+    // MARK: - Blocking Flag (Dead Man's Switch)
+
+    /// Write the blocking-enabled flag to iCloud KV store.
+    /// Called when blocking is toggled on/off.
+    func setBlockingFlag(_ enabled: Bool) {
+        store.set(enabled, forKey: Keys.blockingEnabledFlag)
+    }
+
+    /// Detect a reinstall while blocking was active.
+    /// Returns true if data should be wiped (blocking was on when app was deleted).
+    /// Must be called BEFORE creating the ModelContainer.
+    func checkAndHandleBlockingWipe() -> Bool {
+        // Was blocking enabled when the app was last running?
+        guard store.bool(forKey: Keys.blockingEnabledFlag) else { return false }
+
+        // Is this a reinstall? Local onboarding is false, but iCloud says we onboarded before
+        let localOnboarded = localDefaults.bool(forKey: Keys.hasCompletedOnboarding)
+        let cloudOnboarded = store.bool(forKey: Keys.hasCompletedOnboarding)
+
+        guard !localOnboarded && cloudOnboarded else { return false }
+
+        // This is a reinstall with blocking active — force local-only mode and flag for wipe
+        localDefaults.set(false, forKey: Keys.iCloudSyncEnabled)
+        localDefaults.set(true, forKey: "dataWipedOnReinstall")
+
+        print("CloudSettingsService: Reinstall detected with blocking active — wiping data")
+        return true
     }
 
     // MARK: - Sync to Cloud
@@ -150,12 +211,23 @@ final class CloudSettingsService {
     // MARK: - External Change Handling
 
     @objc private func handleExternalChange(_ notification: Notification) {
-        guard CloudSyncService.shared.isEnabled else { return }
-
         guard let userInfo = notification.userInfo,
               let reasonKey = userInfo[NSUbiquitousKeyValueStoreChangeReasonKey] as? Int else {
             return
         }
+
+        // Always process bootstrap keys (onboarding + sync setting), even if sync
+        // isn't formally enabled yet. These are what restore the user's state on reinstall.
+        if !localDefaults.bool(forKey: "dataWipedOnReinstall") {
+            if store.bool(forKey: Keys.hasCompletedOnboarding) {
+                localDefaults.set(true, forKey: Keys.hasCompletedOnboarding)
+            }
+            if store.bool(forKey: Keys.iCloudSyncEnabled) {
+                localDefaults.set(true, forKey: Keys.iCloudSyncEnabled)
+            }
+        }
+
+        guard CloudSyncService.shared.isEnabled else { return }
 
         // Handle different change reasons
         switch reasonKey {

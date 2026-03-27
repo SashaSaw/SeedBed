@@ -51,7 +51,6 @@ struct TodayContentView: View {
     @State private var showingAddNiceToDo: Bool = false
     @State private var showingAddTodayTask: Bool = false
     @State private var showingAddDontDo: Bool = false
-    @State private var showingSmartAdd: Bool = false
 
     // First-time group callout (lightbulb tip)
     @AppStorage("hasSeenGroupCallout") private var hasSeenGroupCallout: Bool = false
@@ -409,10 +408,6 @@ struct TodayContentView: View {
             AddDontDoView(store: store)
                 .onAppear { Feedback.sheetOpen() }
         }
-        .sheet(isPresented: $showingSmartAdd) {
-            SmartAddView(store: store)
-                .onAppear { Feedback.sheetOpen() }
-        }
         .sheet(isPresented: $showingReflection) {
             EndOfDayNoteView(
                 store: store,
@@ -446,6 +441,9 @@ struct TodayContentView: View {
             .onAppear { Feedback.sheetOpen() }
         }
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                HelpButton(section: .todayView)
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 HStack(spacing: 12) {
                     // Settings gear
@@ -460,8 +458,6 @@ struct TodayContentView: View {
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-
-                    HelpButton(section: .todayView)
 
                     // Sort mode toggle
                     Button {
@@ -482,15 +478,6 @@ struct TodayContentView: View {
 
                     // Add menu
                     Menu {
-                        Button {
-                            Feedback.buttonPress()
-                            showingSmartAdd = true
-                        } label: {
-                            Label("Smart Add (AI)", systemImage: "wand.and.stars")
-                        }
-
-                        Divider()
-
                         Button {
                             Feedback.buttonPress()
                             showingAddHabit = true

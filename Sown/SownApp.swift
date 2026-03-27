@@ -15,12 +15,27 @@ struct SownApp: App {
 
     var sharedModelContainer: ModelContainer = {
         do {
-            // IMPORTANT: Restore iCloud sync setting from cloud BEFORE creating container
-            // This ensures returning users get their habits synced
-            CloudSettingsService.shared.restoreCloudSyncSettingIfNeeded()
+            // Check if this is a reinstall while blocking was active — if so, wipe data
+            let shouldWipe = CloudSettingsService.shared.checkAndHandleBlockingWipe()
+
+            if !shouldWipe {
+                // IMPORTANT: Restore iCloud sync setting from cloud BEFORE creating container
+                // This ensures returning users get their habits synced
+                CloudSettingsService.shared.restoreCloudSyncSettingIfNeeded()
+            }
 
             // Use CloudSyncService to create container with appropriate iCloud settings
-            return try CloudSyncService.shared.makeModelContainer()
+            // (if shouldWipe, iCloudSyncEnabled is already forced off so this creates local-only)
+            let container = try CloudSyncService.shared.makeModelContainer()
+
+            if shouldWipe {
+                // Delete cloud data in background so it can't sync back
+                Task {
+                    await CloudSyncService.shared.deleteCloudData()
+                }
+            }
+
+            return container
         } catch {
             // Fallback to local-only container if cloud initialization fails
             print("CloudKit container creation failed, falling back to local: \(error)")

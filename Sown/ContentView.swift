@@ -19,6 +19,7 @@ struct ContentView: View {
     @State private var showingInterceptView = false
     @State private var pendingNavigationHabit: Habit? = nil
     @State private var showingHabitDetail = false
+    @State private var showingDataWipedAlert = false
 
     init() {
         // Custom font for tab bar and navigation
@@ -111,12 +112,16 @@ struct ContentView: View {
                             checkAndShowIntercept()
                             // Check for pending notification navigation
                             checkPendingNavigation(store: store)
+                            // Refresh widget data (catches blocking schedule changes)
+                            WidgetDataService.updateWidgetData(from: store)
                         }
                     }
                     .onOpenURL { url in
-                        // Handle sown://intercept deep link
-                        if url.scheme == "sown" && url.host == "intercept" {
+                        guard url.scheme == "sown" else { return }
+                        if url.host == "intercept" {
                             showingInterceptView = true
+                        } else if url.host == "today" {
+                            selectedTab = 0
                         }
                     }
                     .fullScreenCover(isPresented: $showingInterceptView) {
@@ -142,6 +147,14 @@ struct ContentView: View {
                             }
                         }
                     }
+                    .alert("Data Cleared", isPresented: $showingDataWipedAlert) {
+                        Button("OK") {
+                            UserDefaults.standard.removeObject(forKey: "dataWipedOnReinstall")
+                            CloudSettingsService.shared.setBlockingFlag(false)
+                        }
+                    } message: {
+                        Text("Your data was cleared because app blocking was active when Sown was deleted. This prevents bypassing app blocks by reinstalling.")
+                    }
                 } else {
                     OnboardingView(store: store, onComplete: {
                         withAnimation(.easeInOut(duration: 0.5)) {
@@ -157,6 +170,11 @@ struct ContentView: View {
                         let store = HabitStore(modelContext: modelContext)
                         store.prefetchDailyLogs()
                         habitStore = store
+
+                        // Check if data was wiped due to reinstall with blocking active
+                        if UserDefaults.standard.bool(forKey: "dataWipedOnReinstall") {
+                            showingDataWipedAlert = true
+                        }
                     }
             }
         }

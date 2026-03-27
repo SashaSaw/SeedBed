@@ -16,6 +16,9 @@
 		584CC1D22F3CCEC70002B104 /* ManagedSettings.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 584CC1BD2F3CCDD90002B104 /* ManagedSettings.framework */; };
 		584CC1DA2F3CCEC70002B104 /* HabitShieldAction.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 584CC1D12F3CCEC70002B104 /* HabitShieldAction.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		586AA6A92F47971500961A2F /* FamilyControls.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 586AA6A82F47971500961A2F /* FamilyControls.framework */; };
+		58A9AE372F714DB70006B21D /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58A9AE362F714DB70006B21D /* WidgetKit.framework */; };
+		58A9AE392F714DB70006B21D /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 58A9AE382F714DB70006B21D /* SwiftUI.framework */; };
+		58A9AE4A2F714DB80006B21D /* SownWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 58A9AE352F714DB70006B21D /* SownWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		58DD219A2F479BC8001929E6 /* FamilyControls.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 586AA6A82F47971500961A2F /* FamilyControls.framework */; };
 		58DD219B2F479BCF001929E6 /* FamilyControls.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 586AA6A82F47971500961A2F /* FamilyControls.framework */; };
 		58DD219C2F479BD9001929E6 /* FamilyControls.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 586AA6A82F47971500961A2F /* FamilyControls.framework */; };
@@ -43,6 +46,13 @@
 			remoteGlobalIDString = 584CC1D02F3CCEC70002B104;
 			remoteInfo = HabitShieldAction;
 		};
+		58A9AE482F714DB80006B21D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 585BCAB92F3143C900EF7350 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 58A9AE342F714DB70006B21D;
+			remoteInfo = SownWidgetExtension;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -53,6 +63,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				584CC1C82F3CCDD90002B104 /* HabitShieldConfig.appex in Embed Foundation Extensions */,
+				58A9AE4A2F714DB80006B21D /* SownWidgetExtension.appex in Embed Foundation Extensions */,
 				584CC1DA2F3CCEC70002B104 /* HabitShieldAction.appex in Embed Foundation Extensions */,
 				584CC1B22F3CCB830002B104 /* HabitMonitor.appex in Embed Foundation Extensions */,
 			);
@@ -71,6 +82,10 @@
 		584CC1D12F3CCEC70002B104 /* HabitShieldAction.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = HabitShieldAction.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		585BCAC12F3143C900EF7350 /* Sown.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sown.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		586AA6A82F47971500961A2F /* FamilyControls.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = FamilyControls.framework; path = System/Library/Frameworks/FamilyControls.framework; sourceTree = SDKROOT; };
+		58A9AE352F714DB70006B21D /* SownWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SownWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		58A9AE362F714DB70006B21D /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		58A9AE382F714DB70006B21D /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		58A9AE5D2F714FD10006B21D /* SownWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SownWidgetExtension.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -129,6 +144,20 @@
 			);
 			target = 585BCAC02F3143C900EF7350 /* Sown */;
 		};
+		58A9AE4E2F714DB80006B21D /* Exceptions for "SownWidget" folder in "SownWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 58A9AE342F714DB70006B21D /* SownWidgetExtension */;
+		};
+		58A9AE5F2F7150390006B21D /* Exceptions for "Sown" folder in "SownWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"Resources/Fonts/PatrickHand-Regular.ttf",
+			);
+			target = 58A9AE342F714DB70006B21D /* SownWidgetExtension */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -163,8 +192,17 @@
 				58471A0A2F4489B40066A33B /* Exceptions for "Sown" folder in "HabitMonitor" target */,
 				58471A0B2F4489B40066A33B /* Exceptions for "Sown" folder in "HabitShieldConfig" target */,
 				58471A0C2F4489B40066A33B /* Exceptions for "Sown" folder in "HabitShieldAction" target */,
+				58A9AE5F2F7150390006B21D /* Exceptions for "Sown" folder in "SownWidgetExtension" target */,
 			);
 			path = Sown;
+			sourceTree = "<group>";
+		};
+		58A9AE3A2F714DB70006B21D /* SownWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				58A9AE4E2F714DB80006B21D /* Exceptions for "SownWidget" folder in "SownWidgetExtension" target */,
+			);
+			path = SownWidget;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -207,6 +245,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		58A9AE322F714DB70006B21D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				58A9AE392F714DB70006B21D /* SwiftUI.framework in Frameworks */,
+				58A9AE372F714DB70006B21D /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -218,6 +265,8 @@
 				584CC1A92F3CCB820002B104 /* DeviceActivity.framework */,
 				584CC1BD2F3CCDD90002B104 /* ManagedSettings.framework */,
 				584CC1BF2F3CCDD90002B104 /* ManagedSettingsUI.framework */,
+				58A9AE362F714DB70006B21D /* WidgetKit.framework */,
+				58A9AE382F714DB70006B21D /* SwiftUI.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -225,10 +274,12 @@
 		585BCAB82F3143C900EF7350 = {
 			isa = PBXGroup;
 			children = (
+				58A9AE5D2F714FD10006B21D /* SownWidgetExtension.entitlements */,
 				585BCAC32F3143C900EF7350 /* Sown */,
 				584CC1AB2F3CCB830002B104 /* HabitMonitor */,
 				584CC1C12F3CCDD90002B104 /* HabitShieldConfig */,
 				584CC1D32F3CCEC70002B104 /* HabitShieldAction */,
+				58A9AE3A2F714DB70006B21D /* SownWidget */,
 				584CC1A82F3CCB820002B104 /* Frameworks */,
 				585BCAC22F3143C900EF7350 /* Products */,
 			);
@@ -241,6 +292,7 @@
 				584CC1A72F3CCB820002B104 /* HabitMonitor.appex */,
 				584CC1BC2F3CCDD90002B104 /* HabitShieldConfig.appex */,
 				584CC1D12F3CCEC70002B104 /* HabitShieldAction.appex */,
+				58A9AE352F714DB70006B21D /* SownWidgetExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -329,6 +381,7 @@
 				584CC1B12F3CCB830002B104 /* PBXTargetDependency */,
 				584CC1C72F3CCDD90002B104 /* PBXTargetDependency */,
 				584CC1D92F3CCEC70002B104 /* PBXTargetDependency */,
+				58A9AE492F714DB80006B21D /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				585BCAC32F3143C900EF7350 /* Sown */,
@@ -339,6 +392,28 @@
 			productName = Sown;
 			productReference = 585BCAC12F3143C900EF7350 /* Sown.app */;
 			productType = "com.apple.product-type.application";
+		};
+		58A9AE342F714DB70006B21D /* SownWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 58A9AE4D2F714DB80006B21D /* Build configuration list for PBXNativeTarget "SownWidgetExtension" */;
+			buildPhases = (
+				58A9AE312F714DB70006B21D /* Sources */,
+				58A9AE322F714DB70006B21D /* Frameworks */,
+				58A9AE332F714DB70006B21D /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				58A9AE3A2F714DB70006B21D /* SownWidget */,
+			);
+			name = SownWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = SownWidgetExtension;
+			productReference = 58A9AE352F714DB70006B21D /* SownWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -362,6 +437,9 @@
 					585BCAC02F3143C900EF7350 = {
 						CreatedOnToolsVersion = 26.2;
 					};
+					58A9AE342F714DB70006B21D = {
+						CreatedOnToolsVersion = 26.2;
+					};
 				};
 			};
 			buildConfigurationList = 585BCABC2F3143C900EF7350 /* Build configuration list for PBXProject "Sown" */;
@@ -382,6 +460,7 @@
 				584CC1A62F3CCB820002B104 /* HabitMonitor */,
 				584CC1BB2F3CCDD90002B104 /* HabitShieldConfig */,
 				584CC1D02F3CCEC70002B104 /* HabitShieldAction */,
+				58A9AE342F714DB70006B21D /* SownWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -409,6 +488,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		585BCABF2F3143C900EF7350 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		58A9AE332F714DB70006B21D /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -446,6 +532,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		58A9AE312F714DB70006B21D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -463,6 +556,11 @@
 			isa = PBXTargetDependency;
 			target = 584CC1D02F3CCEC70002B104 /* HabitShieldAction */;
 			targetProxy = 584CC1D82F3CCEC70002B104 /* PBXContainerItemProxy */;
+		};
+		58A9AE492F714DB80006B21D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 58A9AE342F714DB70006B21D /* SownWidgetExtension */;
+			targetProxy = 58A9AE482F714DB80006B21D /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -878,6 +976,70 @@
 			};
 			name = Release;
 		};
+		58A9AE4B2F714DB80006B21D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = SownWidgetExtension.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3365FP92M9;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SownWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = SownWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.incept5.SeedBed.SownWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		58A9AE4C2F714DB80006B21D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = SownWidgetExtension.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3365FP92M9;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SownWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = SownWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.incept5.SeedBed.SownWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -922,6 +1084,15 @@
 			buildConfigurations = (
 				585BCACD2F3143C900EF7350 /* Debug */,
 				585BCACE2F3143C900EF7350 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		58A9AE4D2F714DB80006B21D /* Build configuration list for PBXNativeTarget "SownWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				58A9AE4B2F714DB80006B21D /* Debug */,
+				58A9AE4C2F714DB80006B21D /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -33,7 +33,10 @@ final class BlockSettings {
 
     /// Whether blocking is enabled globally
     var isEnabled: Bool {
-        didSet { save() }
+        didSet {
+            save()
+            CloudSettingsService.shared.setBlockingFlag(isEnabled)
+        }
     }
 
     /// Block schedule start time (minutes from midnight) — legacy, kept for backward compat

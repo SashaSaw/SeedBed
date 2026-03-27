@@ -219,7 +219,7 @@ struct BlockSetupView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Once app blocking is turned on, you will not be able to turn it off until the scheduled time is over. Make sure your schedule and app selections are set correctly first.")
+            Text("Once app blocking is turned on, you will not be able to turn it off until the scheduled time is over. If you delete Sown while blocking is active, all your habit data will be permanently erased. Make sure your schedule and app selections are set correctly first.")
         }
     }
 

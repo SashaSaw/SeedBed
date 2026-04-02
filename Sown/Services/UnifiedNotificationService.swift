@@ -79,14 +79,22 @@ final class UnifiedNotificationService {
 
         let today = Date()
 
-        // Filter to active, uncompleted, non-task habits
+        // Filter to active, uncompleted, non-task, non-negative habits
+        // Don't-do (negative) habits must never send reminders — reminding the user
+        // about a distraction app makes them think about it
+        let skippedNegative = habits.filter { $0.isActive && !$0.isTask && $0.type == .negative }
+        for habit in skippedNegative {
+            print("[UnifiedNotification] ⛔ Skipping don't-do habit: \(habit.name)")
+        }
+
         let eligibleHabits = habits.filter {
-            $0.isActive && !$0.isTask && !$0.isCompleted(for: today)
+            $0.isActive && !$0.isTask && !$0.isCompleted(for: today) && $0.type != .negative
         }
 
         var scheduledCount = 0
 
         for habit in eligibleHabits {
+            print("[UnifiedNotification] ✅ Scheduling: \(habit.name)")
             guard scheduledCount < habitSlots else {
                 print("[UnifiedNotification] Hit habit slot limit (\(habitSlots))")
                 break

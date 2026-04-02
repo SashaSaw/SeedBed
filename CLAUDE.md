@@ -1,257 +1,172 @@
-# Claude Code Guidelines for Sown
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Reference Documents
+
+- **[VISION.md](VISION.md)** — App purpose, philosophy, blocking philosophy, design principles. Consult before making design decisions.
+- **[USER_STORIES.md](USER_STORIES.md)** — Living checklist of features with acceptance criteria. Check before implementing. Update after changing behavior.
+
+## Build & Run
+
+This is an Xcode project (no SPM Package.swift). Build and run via Xcode or:
+
+```bash
+xcodebuild -scheme Sown -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 16' build
+```
+
+- **Clean Build:** Cmd+Shift+K in Xcode
+- **Build & Run:** Cmd+R
+- No test targets exist yet
 
 ## Xcode Instructions
 
 When providing Xcode instructions:
+- **Assume beginner level** — keep steps atomic, explain concepts before implementation
+- **Use exact menu paths** (e.g., "Click File > New > File") and keyboard shortcuts as fallback
+- **Verify for Xcode 16+** — UI has changed significantly from earlier versions
 
-- **Keep steps atomic and simple** - one action per step
-- **Explain core concepts first** - before diving into implementation, explain what we're doing and why
-- **Describe the overall flow** - how changes affect the app's behavior
-- **Assume beginner level** - this is the user's first time using Xcode
-- **Use exact menu paths** - e.g., "Click File > New > File" not "create a new file"
-- **Reference UI elements clearly** - describe where things are located on screen
-- **Verify UI for Xcode 16+** - UI has changed significantly; always use keyboard shortcuts as fallback
+| Action | Shortcut |
+|--------|----------|
+| Open Library | Cmd+Shift+L |
+| Show/hide left sidebar | Cmd+0 |
+| Show/hide right sidebar | Cmd+Option+0 |
+| Attributes Inspector | Cmd+Option+4 |
+| Size Inspector | Cmd+Option+5 |
+| Clean Build | Cmd+Shift+K |
+| Build & Run | Cmd+R |
 
-### Common Xcode Operations (Xcode 16+)
+## App Overview
 
-| Action | How to do it |
-|--------|--------------|
-| Open Library (UI elements) | Press **Cmd+Shift+L** |
-| Add constraints | Select view, then **Editor > Resolve Auto Layout Issues** or click constraints icon at bottom of canvas |
-| Show/hide sidebars | **Cmd+0** (left), **Cmd+Option+0** (right) |
-| Show Attributes Inspector | **Cmd+Option+4** |
-| Show Size Inspector | **Cmd+Option+5** |
-| Clean Build | **Cmd+Shift+K** |
-| Build & Run | **Cmd+R** |
+**Sown** is an iOS habit tracker with a journal/paper aesthetic. SwiftUI + SwiftData + CloudKit sync. Custom "PatrickHand" handwritten font throughout.
 
-## App Architecture
+### Targets (5 total)
 
-- **SwiftUI** app using **SwiftData** for persistence
-- **@Observable** pattern for state management via `HabitStore`
-- Custom **PatrickHand** handwritten font throughout
-- Journal/paper aesthetic with lined backgrounds
+| Target | Purpose |
+|--------|---------|
+| **Sown** | Main app |
+| **HabitMonitor** | DeviceActivityMonitor extension — enforces Screen Time blocks on schedule |
+| **HabitShieldConfig** | Customizes the shield UI shown when blocked app is opened |
+| **HabitShieldAction** | Handles button taps on shield ("Open Sown" / "Close") |
+| **SownWidgetExtension** | Home screen widget showing today's progress |
 
-## Key Files
+All 5 targets share data via App Group `group.com.incept5.SeedBed` using UserDefaults (extensions cannot access SwiftData directly).
 
-- `HabitStore.swift` - Central state management
-- `JournalTheme.swift` - Colors, fonts, dimensions, Feedback enum
-- `SoundEffectService.swift` - Audio playback
-- Models in `/Models` - Habit, DailyLog, HabitGroup, etc.
+## Architecture
 
----
+### State Management
+
+- `@Observable` pattern (Swift 5.9+), not `@StateObject`
+- `HabitStore` is the central state manager — takes `ModelContext`, exposes filtered views of habits
+- `completionChangeCounter: Int` is incremented on any change; views observe this single value for efficient re-render
+- `prefetchDailyLogs()` pre-loads today's logs to prevent lazy-loading faults blocking the main thread
+
+### Navigation
+
+Tab-based with 5 tabs: **Today** (TodayView) → **Month** (MonthGridView) → **Block** (BlockTabView) → **Journal** (JournalView) → **Stats** (StatsView). Onboarding gate via `hasCompletedOnboarding` flag.
+
+Deep links: `sown://intercept` (from blocked app), `sown://today`.
+
+### Data Models (all `@Model` for SwiftData)
+
+- **Habit** — Core entity for both recurring habits and one-off tasks (`isTask` = `frequencyType == .once`). Has tier (mustDo/niceToDo), type (positive/negative), frequency, HealthKit linking, schedule times, optional photo/notes support.
+- **DailyLog** — One entry per habit per date. Tracks completion, value, notes, photos, auto-completion flags.
+- **HabitGroup** — Bundles habits with "complete X of Y" logic. References habits by UUID array.
+- **DayRecord** — Locks "good day" status at midnight. Prevents gaming by adding easy habits after the fact.
+- **EndOfDayNote** — Evening reflection with fulfillment score (1-10). Editable for 48 hours, then auto-locked.
+- **BlockSettings** — **Not a @Model**. Stored in UserDefaults (shared via App Group). Manages app blocking config.
+
+### Services (observable singletons with `.shared`)
+
+- **CloudSyncService** — Creates ModelContainer with/without CloudKit. Handles sync opt-in.
+- **CloudSettingsService** — Persists non-model settings (wake/bed times, blocking flags) to CloudKit.
+- **HealthKitManager** — Auto-completes habits when HealthKit targets are met.
+- **ScreenTimeManager** — FamilyControls authorization + app shielding via ManagedSettings.
+- **UnifiedNotificationService** — Schedules reminders within iOS's 64-notification budget (44 habits + 20 task deadlines). Uses 5 time slots mapped to wall-clock times via UserSchedule.
+- **UserSchedule** — Wake/bed times. Drives notification slot → actual time mapping.
+- **PhotoStorageService / CloudPhotoService** — Local + iCloud photo storage for hobby logs.
+- **SoundEffectService** — Completion/unlock sounds. Pre-warms audio at launch.
+- **WidgetDataService** — Pushes habit data to App Group defaults for widget reads.
+
+### Key Files
+
+- `HabitStore.swift` — Central state management
+- `JournalTheme.swift` — Colors, fonts, dimensions, Feedback enum
+- `SownApp.swift` — App entry, ModelContainer setup, deep link handling
+- `ContentView.swift` — Tab bar layout
+- `SownSchemaVersions.swift` — SwiftData migration setup
 
 ## UI Rules
 
-### Text Must Always Be Readable Against Its Background
+### Text Contrast
 
-- **Light backgrounds** (paper, paperLight, white): use dark text (`inkBlack`, `navy`, `completedGray` for secondary text). Never leave text as the system default — it's often too faint on our paper colours.
-- **Dark backgrounds** (navy, inkBlue, teal fills): use white or light text.
-- **Placeholder text**: always set explicitly via the `prompt:` parameter with `completedGray` — the system default placeholder is nearly invisible on paper backgrounds.
-- **DatePickers**: always add `.environment(\.colorScheme, .light)` so the time text renders dark. For `.compact` style, also add `.fixedSize()` to prevent layout widening. For `.wheel` style, add `.frame(maxWidth: .infinity)` and `.clipped()`.
-- **When implementing any new feature**, verify that all text and controls have sufficient contrast against their background. Don't rely on system defaults — they assume a pure white background which we don't use.
+- **Light backgrounds** (paper, paperLight, white): use dark text (`inkBlack`, `navy`, `completedGray` for secondary). Never use system default text color.
+- **Dark backgrounds** (navy, inkBlue, teal): use white or light text.
+- **Placeholder text**: always set explicitly via `prompt:` parameter with `completedGray`.
+- **DatePickers**: always add `.environment(\.colorScheme, .light)`. For `.compact`, also `.fixedSize()`. For `.wheel`, also `.frame(maxWidth: .infinity)` and `.clipped()`.
+- **Every new feature**: verify all text/controls have sufficient contrast. System defaults assume pure white background.
 
----
+## SwiftData + CloudKit Patterns
 
-## Common Issues & Solutions
+### Enum Properties
 
-### SwiftData: Enum Default Values Don't Work
-
-**Error message:**
-```
-Type 'Any?' has no member 'mustDo'
-```
-
-**What's happening:**
-SwiftData uses the `@Model` macro to auto-generate persistence code. When you give a custom enum property a default value like `var tier: HabitTier = .mustDo`, the macro loses track of the type. It sees `.mustDo` but thinks the type is `Any?` instead of `HabitTier`, so it can't find the enum case.
-
-**Why it matters:**
-CloudKit (iCloud sync) requires all non-optional properties to have default values. But SwiftData macros can't handle enum defaults. This creates a conflict.
-
-**The fix:**
-Store the enum's raw String value instead, then use a computed property for convenient enum access:
+SwiftData macros lose type info on enum defaults. Store raw String value, expose enum via computed property:
 
 ```swift
-// ❌ BAD - SwiftData macro can't handle this
+// ❌ BAD
 var tier: HabitTier = .mustDo
 
-// ✅ GOOD - Store raw value, expose enum via computed property
+// ✅ GOOD
 private var tierRawValue: String = HabitTier.mustDo.rawValue
-
 var tier: HabitTier {
     get { HabitTier(rawValue: tierRawValue) ?? .mustDo }
     set { tierRawValue = newValue.rawValue }
 }
 ```
 
-**Files affected:** `Habit.swift`, `HabitGroup.swift` (any model with enum properties)
+### Relationships Must Be Optional
 
----
-
-### SwiftData: "Could not create ModelContainer" after changing models
-
-**Error message:**
-```
-Fatal error: Could not create ModelContainer: SwiftDataError(_error: SwiftData.SwiftDataError._Error.loadIssueModelContainer)
-```
-
-**What's happening:**
-You changed the structure of a `@Model` class (added/removed/renamed properties), but the app already has data saved with the OLD structure. SwiftData can't automatically convert from the old format to the new one.
-
-**Example:** Changing `var tier: HabitTier` to `var tierRawValue: String` creates a new column and removes the old one. The existing data is orphaned.
-
-**Quick fix (development only):**
-Delete the app from simulator/device and reinstall. This clears the old database.
-
-- **Simulator:** Long-press app → Delete App
-- **Device:** Settings → General → iPhone Storage → Sown → Delete App
-
-**For production apps:**
-You would need to set up a `VersionedSchema` and `SchemaMigrationPlan` to tell SwiftData exactly how to convert old data to new format. This is only needed if you've already shipped to users.
-
----
-
-## Schema Migrations (For Released Apps)
-
-### Overview
-
-When you release your app, users save data in a specific format. If you later change your models, you need **migrations** to convert their old data to the new format.
-
-**File:** `SownSchemaVersions.swift` contains the migration setup.
-
-### Safe Changes (No Migration Needed)
-
-These changes are automatically handled by SwiftData:
-- Adding a new **optional** property (`var newField: String?`)
-- Adding a new property **with a default value** (`var newField: String = ""`)
-
-### Breaking Changes (Migration Required)
-
-These need a migration:
-- **Renaming** a property (`name` → `title`)
-- **Changing** a property's type (`String` → `Int`)
-- **Removing** a property
-- Making an optional property **required**
-
-### How to Add a New Schema Version
-
-**Step 1:** In `SownSchemaVersions.swift`, create a new version enum:
+CloudKit requires optional relationships (data may arrive out-of-order during sync):
 
 ```swift
-enum SownSchemaV2: VersionedSchema {
-    static var versionIdentifier = Schema.Version(2, 0, 0)
-    static var models: [any PersistentModel.Type] {
-        [Habit.self, HabitGroup.self, DailyLog.self, DayRecord.self, EndOfDayNote.self]
-    }
-}
-```
-
-**Step 2:** Add V2 to the migration plan's schemas array:
-
-```swift
-static var schemas: [any VersionedSchema.Type] {
-    [SownSchemaV1.self, SownSchemaV2.self]
-}
-```
-
-**Step 3:** Add a migration stage:
-
-```swift
-// For simple changes (adding optional fields):
-static let migrateV1toV2 = MigrationStage.lightweight(
-    fromVersion: SownSchemaV1.self,
-    toVersion: SownSchemaV2.self
-)
-
-// For complex changes (renaming, type changes):
-static let migrateV1toV2 = MigrationStage.custom(
-    fromVersion: SownSchemaV1.self,
-    toVersion: SownSchemaV2.self,
-    willMigrate: nil,
-    didMigrate: { context in
-        // Transform data here
-    }
-)
-```
-
-**Step 4:** Add the stage to the stages array:
-
-```swift
-static var stages: [MigrationStage] {
-    [migrateV1toV2]
-}
-```
-
-**Step 5:** Update `CloudSyncService.makeModelContainer()` to use the new schema version.
-
----
-
-### CloudKit: Relationships Must Be Optional
-
-**Error message:**
-```
-CloudKit integration requires that all relationships be optional, the following are not:
-Habit: dailyLogs
-```
-
-**What's happening:**
-CloudKit (iCloud sync) requires that all relationships between models be **optional**. This is because when data syncs from the cloud, related objects might not arrive at the same time. CloudKit needs to handle the case where a `Habit` exists but its `DailyLog` records haven't synced yet.
-
-**The fix:**
-Change relationship arrays from non-optional to optional:
-
-```swift
-// ❌ BAD - CloudKit can't handle this
+// ❌ BAD
 @Relationship(deleteRule: .cascade, inverse: \DailyLog.habit)
 var dailyLogs: [DailyLog] = []
 
-// ✅ GOOD - Optional relationship
+// ✅ GOOD
 @Relationship(deleteRule: .cascade, inverse: \DailyLog.habit)
 var dailyLogs: [DailyLog]?
 ```
 
-**Important:** After making this change, update all code that accesses the relationship:
-- `habit.dailyLogs.filter { }` → `(habit.dailyLogs ?? []).filter { }`
-- `habit.dailyLogs.first { }` → `habit.dailyLogs?.first { }`
-- `habit.dailyLogs.append(log)` → Initialize if nil, then append
+Access with: `(habit.dailyLogs ?? []).filter { }`, `habit.dailyLogs?.first { }`
 
----
+### ModelContainer Crash After Schema Changes
 
-### CloudKit: Remote Notification Background Mode Required
+If you see `SwiftDataError._Error.loadIssueModelContainer` after changing model properties:
+- **Dev fix:** Delete app from simulator (long-press → Delete App) and reinstall
+- **Production:** Add a `VersionedSchema` + `SchemaMigrationPlan` in `SownSchemaVersions.swift`
 
-**Error message:**
-```
-CloudKit push notifications require the 'remote-notification' background mode in your info plist.
-```
+### Schema Migrations
 
-**What's happening:**
-CloudKit uses push notifications to tell your app when data changes on other devices. For this to work, iOS needs to know your app can receive notifications in the background.
+Safe (no migration needed): adding optional properties, adding properties with defaults.
 
-**The fix:**
-Add to `Info.plist`:
+Breaking (migration required): renaming, type changes, removing properties, making optional → required.
 
-```xml
-<key>UIBackgroundModes</key>
-<array>
-    <string>remote-notification</string>
-</array>
-```
+To add a version: create `SownSchemaV{N}` enum, add to migration plan's `schemas` array, add a `MigrationStage` (.lightweight or .custom), update `CloudSyncService.makeModelContainer()`.
 
-Or in Xcode: Target → Signing & Capabilities → + Background Modes → Check "Remote notifications"
+### CloudKit Background Mode
 
----
+CloudKit push notifications require `remote-notification` in UIBackgroundModes (Info.plist or Signing & Capabilities → Background Modes → Remote notifications).
+
+## Non-Obvious Behaviors
+
+- **Good day lock**: `DayRecord.lockedAt` freezes good-day status at midnight. Adding new habits won't retroactively change it.
+- **Block-wipe on reinstall**: If app blocking was active when uninstalled, the cloud flag triggers a data wipe on reinstall to prevent bypass.
+- **Notification budget**: iOS allows max 64 scheduled notifications. The app budgets 44 for habit reminders + 20 for task deadlines. Don't schedule naively.
+- **Time slots**: Habits use 5 abstract slots (After Wake, Morning, During Day, Evening, Before Bed) mapped to real times via UserSchedule wake/bed times, not arbitrary clock times.
 
 ## Future Features
 
 ### Auto-Generated Habit Prompts
 
-**Status:** Planned
-
-**Idea:** Use a small LLM to auto-generate motivational habit prompts so users don't have to motivate themselves. Currently, users manually enter habit prompts like "Put on your trainers and step outside" for their Run habit.
-
-**Potential approaches:**
-- On-device models (Core ML, Apple Intelligence)
-- API-based generation (OpenAI, Anthropic)
-- Pre-generated prompt templates based on habit categories
-
-**Why it matters:**
-The habit prompt is shown in notifications and on the habit detail page. A well-crafted prompt that focuses on the first tiny step makes habits more actionable. Most users won't write these themselves.
+**Status:** Planned. Use an LLM to auto-generate motivational micro-habit prompts (e.g., "Put on your trainers and step outside" for a Run habit). Currently users must write these manually. Potential approaches: on-device models, API-based generation, or pre-generated templates.

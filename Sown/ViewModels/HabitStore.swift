@@ -406,19 +406,42 @@ final class HabitStore {
         WidgetDataService.updateWidgetData(from: self)
     }
 
-    /// Delete completed today-only tasks from previous days
+    /// Delete completed today-only tasks from previous days (or after cleanup time today)
     func cleanupExpiredTodayTasks() {
         let calendar = Calendar.current
-        let startOfToday = calendar.startOfDay(for: Date())
+        let now = Date()
+        let startOfToday = calendar.startOfDay(for: now)
+
+        // 0 = midnight (tasks only cleaned up when the next day starts)
+        let cleanupMinutes = 0
+
+        let currentMinutes = calendar.component(.hour, from: now) * 60 + calendar.component(.minute, from: now)
 
         let expiredTasks = habits.filter { habit in
             guard habit.isTask else { return false }
+            // Check if completed on ANY day (not just creation day)
+            guard (habit.dailyLogs ?? []).contains(where: { $0.completed }) else { return false }
+
             let createdDay = calendar.startOfDay(for: habit.createdAt)
-            return createdDay < startOfToday && habit.isCompleted(for: createdDay)
+
+            if createdDay < startOfToday {
+                // Task from a previous day — always clean up
+                return true
+            }
+            if cleanupMinutes > 0 && currentMinutes >= cleanupMinutes && createdDay == startOfToday {
+                // Task from today, past cleanup time — clean up for testing
+                return true
+            }
+            return false
         }
 
         for task in expiredTasks {
+            print("[TaskCleanup] 🗑️ Deleting completed task: \(task.name)")
             deleteHabit(task)
+        }
+
+        if !expiredTasks.isEmpty {
+            print("[TaskCleanup] Deleted \(expiredTasks.count) completed task(s)")
         }
     }
 

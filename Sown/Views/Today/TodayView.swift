@@ -547,6 +547,8 @@ struct TodayContentView: View {
                 store.lockPreviousDayIfNeeded()
                 hasLockedPreviousDay = true
             }
+            // Clean up completed tasks from previous days on every launch
+            store.cleanupExpiredTodayTasks()
             wasGoodDay = store.isGoodDay(for: selectedDate)
             // Show group callout if first time seeing a group
             if !hasSeenGroupCallout && !store.groups.isEmpty {
@@ -606,11 +608,12 @@ struct TodayContentView: View {
                 if today != lastKnownDay {
                     // Lock yesterday's good day status before switching to today
                     store.lockPreviousDayIfNeeded()
-                    store.cleanupExpiredTodayTasks()
                     selectedDate = Date()
                     lastKnownDay = today
                     wasGoodDay = store.isGoodDay(for: selectedDate)
                 }
+                // Clean up completed tasks on every activation (not just day transitions)
+                store.cleanupExpiredTodayTasks()
                 // Check for morning tasks prompt when returning to app
                 checkMorningTasksPrompt()
 

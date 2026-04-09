@@ -158,6 +158,24 @@ To add a version: create `SownSchemaV{N}` enum, add to migration plan's `schemas
 
 CloudKit push notifications require `remote-notification` in UIBackgroundModes (Info.plist or Signing & Capabilities → Background Modes → Remote notifications).
 
+## Debugging: Blocking Overlay
+
+A shake-to-open debug overlay was previously implemented for diagnosing blocking issues. The files have been **removed** but can be recreated when needed.
+
+### What it showed
+- **State**: toggle on/off, isCurrentlyActive, isShielding, selected app/category count, temp unlock expiry
+- **Schedule**: all entries with today highlighted
+- **Failure Blocks**: habit name, limit, habitId for each active Don't-Do failure block
+- **Stores**: whether `sown.blocking` (schedule) and `sown.failure` (don't-do) ManagedSettingsStores have active shields, plus `blockingIsEnabled` flag in App Group
+- **Event Log**: timestamped blocking events with action + detail
+- **Force Clear All** button: emergency kill switch that clears both stores, turns off toggle, and wipes failure blocks
+
+### To recreate
+1. Create `Sown/Utilities/ShakeDetector.swift` — UIWindow extension that overrides `motionEnded` and posts `Notification.Name.deviceDidShake` on `.motionShake`
+2. Create `Sown/Views/Debug/BlockingDebugOverlay.swift` — SwiftUI sheet that reads `ScreenTimeManager.shared` and `BlockSettings.shared` to display state, schedule entries, failure block info from `failureBlockedHabitInfo()`, and store shield status via `failureStoreHasShields`. Include a "Force Clear All" button that calls `disableBlocking()`.
+3. Add a `debugLog: [BlockingEvent]` array and `log()` method to `ScreenTimeManager` and sprinkle `log()` calls in `applyShields`, `removeShields`, `enableBlocking`, `disableBlocking`, `reconcileShields`, `grantTemporaryUnlock`.
+4. Wire into `ContentView`: `@State private var showingDebugOverlay = false`, `.sheet(isPresented: $showingDebugOverlay) { BlockingDebugOverlay() }`, `.onReceive(NotificationCenter.default.publisher(for: .deviceDidShake)) { _ in showingDebugOverlay = true }`
+
 ## Non-Obvious Behaviors
 
 - **Good day lock**: `DayRecord.lockedAt` freezes good-day status at midnight. Adding new habits won't retroactively change it.

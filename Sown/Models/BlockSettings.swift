@@ -361,6 +361,8 @@ final class BlockSettings {
         }
     }
 
+    private static let appGroupID = "group.com.incept5.SeedBed"
+
     private func save() {
         let saved = SavedBlockSettingsV3(
             isEnabled: isEnabled,
@@ -375,6 +377,9 @@ final class BlockSettings {
         if let data = try? JSONEncoder().encode(saved) {
             UserDefaults.standard.set(data, forKey: Self.settingsKeyV3)
         }
+        // Sync isEnabled to App Group so extensions can read it
+        let shared = UserDefaults(suiteName: Self.appGroupID)
+        shared?.set(isEnabled, forKey: "blockingIsEnabled")
     }
 
     /// Rebuild schedule entries when legacy fields change

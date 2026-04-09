@@ -381,7 +381,15 @@ final class HabitStore {
         WidgetDataService.updateWidgetData(from: self)
     }
 
+    /// Whether a habit can be deleted (blocked if it has an active failure block)
+    func canDeleteHabit(_ habit: Habit) -> Bool {
+        !ScreenTimeManager.shared.hasActiveFailureBlock(habitId: habit.id.uuidString)
+    }
+
     func deleteHabit(_ habit: Habit) {
+        // Prevent deletion if habit has an active failure block
+        guard canDeleteHabit(habit) else { return }
+
         // Cancel any scheduled notifications for this habit
         Task {
             await NotificationService.shared.cancelNotifications(for: habit)

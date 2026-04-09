@@ -19,9 +19,9 @@ final class ScreenTimeManager {
         didSet {
             saveSelection()
             // When selection changes while blocking is active, update shields
-            if BlockSettings.shared.isEnabled {
-                applyShields()
-            }
+            // Skip during init to avoid circular dependency with BlockSettings.shared
+            guard !isLoading, BlockSettings.shared.isEnabled else { return }
+            applyShields()
         }
     }
 
@@ -31,10 +31,15 @@ final class ScreenTimeManager {
     /// Apps blocked due to Don't Do limit exceeded (separate from schedule)
     private var failureBlockedApps: Set<ApplicationToken> = []
 
+    /// True during init — prevents applyShields() from being called before init completes
+    /// (avoids circular dependency deadlock with BlockSettings.shared)
+    private var isLoading = false
+
     // MARK: - Private
 
     private static let failureBlockedAppsKey = "failureBlockedApps"
-    private let settingsStore = ManagedSettingsStore()
+    private let settingsStore = ManagedSettingsStore(named: .init("sown.blocking"))
+    private let failureStore = ManagedSettingsStore(named: .init("sown.failure"))
     private let activityCenter = DeviceActivityCenter()
     private static let selectionKey = "screenTimeSelection"
     private static let authorizationKey = "screenTimeAuthorizationGranted"
@@ -53,8 +58,10 @@ final class ScreenTimeManager {
     private init() {
         // Check existing authorization status
         checkAuthorization()
-        // Load saved selection
+        // Load saved selection (isLoading flag prevents applyShields deadlock)
+        isLoading = true
         loadSelection()
+        isLoading = false
         // Load failure-blocked apps from shared defaults
         loadFailureBlockedApps()
     }
@@ -95,11 +102,9 @@ final class ScreenTimeManager {
 
     // MARK: - Shielding
 
-    /// Apply shields to the selected apps — they'll show a system shield when opened
+    /// Apply schedule shields to the selected apps (only during active schedule windows).
     func applyShields() {
-        // Combine schedule-blocked apps with failure-blocked apps
-        var applications = activitySelection.applicationTokens
-        applications.formUnion(failureBlockedApps)
+        let applications = activitySelection.applicationTokens
         let categories = activitySelection.categoryTokens
 
         if applications.isEmpty && categories.isEmpty {
@@ -113,34 +118,61 @@ final class ScreenTimeManager {
             : ShieldSettings.ActivityCategoryPolicy<Application>.specific(categories)
 
         isShielding = true
+
     }
 
-    /// Remove all shields — apps become accessible again
+    /// Remove schedule shields — apps become accessible again.
+    /// Does NOT touch failure shields (those persist until midnight).
     func removeShields() {
         settingsStore.shield.applications = nil
         settingsStore.shield.applicationCategories = nil
-        isShielding = false
+        isShielding = !hasActiveFailureShields
+
+    }
+
+    /// Apply failure shields for Don't-Do apps that exceeded their limit.
+    /// These persist until midnight regardless of schedule.
+    private func applyFailureShields() {
+        guard !failureBlockedApps.isEmpty else { return }
+        failureStore.shield.applications = failureBlockedApps
+        isShielding = true
+
+    }
+
+    /// Remove failure shields (called at midnight).
+    private func removeFailureShields() {
+        failureStore.shield.applications = nil
+        failureStore.shield.applicationCategories = nil
+        isShielding = settingsStore.shield.applications != nil
+
+    }
+
+    /// Whether the failure store has active shields
+    private var hasActiveFailureShields: Bool {
+        failureStore.shield.applications != nil
+    }
+
+    /// Whether the failure store has active shields (used by intercept guard)
+    var failureStoreHasShields: Bool {
+        failureStore.shield.applications != nil
     }
 
     // MARK: - Failure Blocking (Don't Do habits)
 
-    /// Block a specific app due to exceeding a Don't Do limit
+    /// Block a specific app due to exceeding a Don't Do limit.
+    /// Uses the failure store — persists until midnight regardless of schedule.
     func blockAppForFailure(_ appToken: ApplicationToken) {
         failureBlockedApps.insert(appToken)
         saveFailureBlockedApps()
-        applyShields()
+        applyFailureShields()
     }
 
     /// Clear all failure-blocked apps (called at midnight)
     func clearFailureBlocks() {
         failureBlockedApps.removeAll()
         saveFailureBlockedApps()
-        // Re-apply shields to remove the failure blocks but keep schedule blocks
-        if BlockSettings.shared.isEnabled {
-            applyShields()
-        } else {
-            removeShields()
-        }
+        removeFailureShields()
+        clearFailureBlockedHabitInfo()
     }
 
     /// Load failure-blocked apps from shared defaults
@@ -159,11 +191,57 @@ final class ScreenTimeManager {
         sharedDefaults.set(blockedAppsData, forKey: Self.failureBlockedAppsKey)
     }
 
-    /// Sync failure-blocked apps from extension (call on app become active)
+    /// Clear failure-blocked habit info from shared defaults (called at midnight)
+    private func clearFailureBlockedHabitInfo() {
+        sharedDefaults.removeObject(forKey: "failureBlockedHabitInfo")
+    }
+
+    /// Whether a specific habit has an active failure block
+    func hasActiveFailureBlock(habitId: String) -> Bool {
+        let info = sharedDefaults.array(forKey: "failureBlockedHabitInfo") as? [[String: Any]] ?? []
+        return info.contains { ($0["habitId"] as? String) == habitId }
+    }
+
+    /// Get all failure-blocked habit info (for debug overlay)
+    func failureBlockedHabitInfo() -> [[String: Any]] {
+        sharedDefaults.array(forKey: "failureBlockedHabitInfo") as? [[String: Any]] ?? []
+    }
+
+    /// Remove failure block for a specific habit (e.g., when habit is deleted)
+    func clearFailureBlock(forHabitId habitId: String) {
+        // Remove from habit info
+        var info = sharedDefaults.array(forKey: "failureBlockedHabitInfo") as? [[String: Any]] ?? []
+        info.removeAll { ($0["habitId"] as? String) == habitId }
+        if info.isEmpty {
+            sharedDefaults.removeObject(forKey: "failureBlockedHabitInfo")
+        } else {
+            sharedDefaults.set(info, forKey: "failureBlockedHabitInfo")
+        }
+
+        // If no failure blocks remain, clear the failure store
+        if info.isEmpty {
+            failureBlockedApps.removeAll()
+            saveFailureBlockedApps()
+            removeFailureShields()
+        }
+    }
+
+    /// Clean up stale failure blocks for habits that no longer exist.
+    /// Call on app launch with the set of existing habit IDs.
+    func cleanupStaleFailureBlocks(existingHabitIds: Set<String>) {
+        let info = sharedDefaults.array(forKey: "failureBlockedHabitInfo") as? [[String: Any]] ?? []
+        let staleIds = info.compactMap { $0["habitId"] as? String }.filter { !existingHabitIds.contains($0) }
+        for id in staleIds {
+            clearFailureBlock(forHabitId: id)
+        }
+    }
+
+    /// Sync failure-blocked apps from extension (call on app become active).
+    /// Uses the failure store — independent of schedule.
     func syncFailureBlockedApps() {
         loadFailureBlockedApps()
-        if !failureBlockedApps.isEmpty && BlockSettings.shared.isEnabled {
-            applyShields()
+        if !failureBlockedApps.isEmpty {
+            applyFailureShields()
         }
     }
 
@@ -220,38 +298,90 @@ final class ScreenTimeManager {
 
     // MARK: - Enable / Disable (called from BlockSetupView)
 
-    /// Enable blocking: apply shields + start schedule monitoring
+    /// Enable blocking: start schedule monitoring, then apply shields only if within schedule
     func enableBlocking() {
-        applyShields()
+
         startMonitoring()
+        if BlockSettings.shared.isCurrentlyActive {
+            applyShields()
+        }
     }
 
-    /// Disable blocking: remove shields + stop monitoring
+    /// Disable blocking: remove all shields + stop monitoring
     func disableBlocking() {
+
         stopMonitoring()
+        removeFailureShields()
+        failureBlockedApps.removeAll()
+        saveFailureBlockedApps()
+        clearFailureBlockedHabitInfo()
     }
 
     /// Called when the schedule or selection changes while blocking is enabled
     func updateBlocking() {
         guard BlockSettings.shared.isEnabled else { return }
-        applyShields()
+
         startMonitoring()
+        if BlockSettings.shared.isCurrentlyActive {
+            applyShields()
+        } else {
+            removeShields()
+        }
+    }
+
+    /// Reconcile shield state with current schedule (call on app foreground).
+    func reconcileShields() {
+        let bs = BlockSettings.shared
+
+        guard bs.isEnabled else {
+            removeShields()
+            removeFailureShields()
+            return
+        }
+        if bs.isCurrentlyActive {
+            applyShields()
+        } else {
+            removeShields()
+        }
+        syncFailureBlockedApps()
     }
 
     // MARK: - Temporary Unlock
+
+    /// When the current temporary unlock expires (nil = no active unlock)
+    private(set) var temporaryUnlockExpiry: Date?
 
     /// Temporarily remove all shields for 5 minutes, then re-apply them.
     /// The Screen Time API uses opaque tokens — we cannot identify individual apps,
     /// so we remove ALL shields and restore them after the timeout.
     func grantTemporaryUnlock(minutes: Double = 5) {
+
+        let expiry = Date().addingTimeInterval(minutes * 60)
+        temporaryUnlockExpiry = expiry
+
         // Remove all shields immediately
         removeShields()
 
-        // Re-apply after the timeout
+        // Re-apply after the timeout. The expiry check ensures stale timers
+        // from previous unlocks don't re-block prematurely.
         DispatchQueue.main.asyncAfter(deadline: .now() + minutes * 60) { [weak self] in
-            guard let self, BlockSettings.shared.isEnabled else { return }
+            guard let self,
+                  BlockSettings.shared.isEnabled,
+                  BlockSettings.shared.isCurrentlyActive else {
+                self?.temporaryUnlockExpiry = nil
+                return
+            }
+            // Only re-block if this timer's expiry is still the current one
+            guard let currentExpiry = self.temporaryUnlockExpiry, currentExpiry <= expiry else { return }
+            self.temporaryUnlockExpiry = nil
             self.applyShields()
         }
+    }
+
+    /// Whether apps are temporarily unlocked right now
+    var isTemporarilyUnlocked: Bool {
+        guard let expiry = temporaryUnlockExpiry else { return false }
+        return Date() < expiry
     }
 
     // MARK: - Persistence

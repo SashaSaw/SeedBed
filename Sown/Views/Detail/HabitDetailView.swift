@@ -875,6 +875,31 @@ struct HabitDetailView: View {
                     .tint(JournalTheme.Colors.teal)
                 }
             }
+
+            // Block after limit toggle (Don't-Do habits only)
+            if habit.type == .negative && habit.isScreenTimeLinked {
+                Toggle(isOn: Binding(
+                    get: { habit.screenTimeBlockOnExceed },
+                    set: { newValue in
+                        Feedback.selection()
+                        habit.screenTimeBlockOnExceed = newValue
+                        store.updateHabit(habit)
+                        store.startScreenTimeMonitoring()
+                    }
+                )) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Block app after limit")
+                            .font(JournalTheme.Fonts.habitName())
+                            .foregroundStyle(JournalTheme.Colors.inkBlack)
+
+                        Text("App will show a shield until midnight")
+                            .font(JournalTheme.Fonts.habitCriteria())
+                            .foregroundStyle(JournalTheme.Colors.completedGray)
+                            .italic()
+                    }
+                }
+                .tint(JournalTheme.Colors.negativeRedDark)
+            }
         }
     }
 

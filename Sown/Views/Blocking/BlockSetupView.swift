@@ -72,12 +72,7 @@ struct BlockSetupView: View {
                     screenTimeManager.disableBlocking()
                 }
             }
-            .onChange(of: blockSettings.scheduleStartMinutes) { _, _ in
-                screenTimeManager.updateBlocking()
-            }
-            .onChange(of: blockSettings.scheduleEndMinutes) { _, _ in
-                screenTimeManager.updateBlocking()
-            }
+            // Schedule changes are now applied via the Save button in ScheduleCard
         }
     }
 

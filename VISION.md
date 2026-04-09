@@ -44,7 +44,7 @@ Blocking is **not** about being an unbreakable wall. It's about forcing a consci
 
 The friction is the point. Most people will turn back at step 1 or 3. Those who go through the full flow have made a *conscious choice* rather than a mindless one.
 
-Blocking runs independently on a schedule — it is not tied to habit completion. The schedule is the user's commitment to themselves about when they should be focused.
+Blocking runs independently on a schedule — it is not tied to habit completion. The schedule is the user's commitment to themselves about when they should be focused. Blocking is strictly schedule-bound: outside the schedule window, all schedule-blocked apps are fully accessible. Exception: apps that exceed a Don't-Do limit are blocked until midnight as a consequence, with a custom shield message explaining why the app was blocked and which habit slipped.
 
 ### Future blocking enhancements
 - Unlock apps automatically after completing all must-dos (reward-based unblocking)

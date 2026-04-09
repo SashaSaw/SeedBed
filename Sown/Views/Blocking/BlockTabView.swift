@@ -22,6 +22,7 @@ struct BlockTabView: View {
                         }
 
                         BlockStatusCard()
+                        FailureBlockBanner()
                         BlockingTypeCard()
                         ScheduleCard()
                         BlockedAppsCard()

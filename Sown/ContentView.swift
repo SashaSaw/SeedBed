@@ -101,6 +101,9 @@ struct ContentView: View {
                     .onAppear {
                         // Refresh notifications on app launch with current habit state
                         store.refreshNotifications()
+                        // Clean up failure blocks for deleted habits
+                        let existingIds = Set(store.allHabits.map { $0.id.uuidString })
+                        ScreenTimeManager.shared.cleanupStaleFailureBlocks(existingHabitIds: existingIds)
                         // Check if launched from shield
                         checkAndShowIntercept()
                         // Check for pending notification navigation
@@ -108,6 +111,8 @@ struct ContentView: View {
                     }
                     .onChange(of: scenePhase) { _, newPhase in
                         if newPhase == .active {
+                            // Reconcile shield state with current schedule
+                            ScreenTimeManager.shared.reconcileShields()
                             // Check if returning from a shield tap
                             checkAndShowIntercept()
                             // Check for pending notification navigation
@@ -180,11 +185,19 @@ struct ContentView: View {
         }
     }
 
-    /// Check if the shield action sent us an intercept request via App Group
+    /// Check if the shield action sent us an intercept request via App Group.
+    /// Shows the intercept flow during active schedule blocking OR when failure blocks are active.
     private func checkAndShowIntercept() {
         guard !showingInterceptView else { return }
 
         let defaults = UserDefaults(suiteName: "group.com.incept5.SeedBed")
+
+        // Show intercept during active schedule blocking or when failure blocks exist
+        let hasFailureBlocks = ScreenTimeManager.shared.failureStoreHasShields
+        guard BlockSettings.shared.isCurrentlyActive || hasFailureBlocks else {
+            defaults?.removeObject(forKey: "interceptRequested")
+            return
+        }
         if let requestTime = defaults?.double(forKey: "interceptRequested"), requestTime > 0 {
             // Only honour requests from the last 30 seconds (avoid stale flags)
             let age = Date().timeIntervalSince1970 - requestTime

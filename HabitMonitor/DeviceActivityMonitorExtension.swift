@@ -28,7 +28,8 @@ struct HabitScreenTimeConfig: Codable {
 /// NOTE: Class name must match NSExtensionPrincipalClass in Info.plist
 class DeviceActivityMonitorExtension: DeviceActivityMonitor {
 
-    private let store = ManagedSettingsStore()
+    private let store = ManagedSettingsStore(named: .init("sown.blocking"))
+    private let failureStore = ManagedSettingsStore(named: .init("sown.failure"))
     private static let selectionKey = "screenTimeSelection"
     private static let appGroupID = "group.com.incept5.SeedBed"
     private static let configsKey = "screenTimeHabitConfigs"
@@ -50,6 +51,10 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
                 guard dayOfWeek == currentWeekday else { return }
             }
         }
+
+        // Only apply shields if blocking is enabled (shared via App Group)
+        let defaults = UserDefaults(suiteName: Self.appGroupID)
+        guard defaults?.bool(forKey: "blockingIsEnabled") == true else { return }
 
         // Load the saved selection and apply shields
         guard let selection = loadSelection() else { return }
@@ -105,7 +110,7 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
 
             // Block the app if configured
             if config.blockOnExceed, let appTokenData = config.appTokenData {
-                blockAppForFailure(appTokenData: appTokenData)
+                blockAppForFailure(appTokenData: appTokenData, habitId: habitIdString, habitName: config.habitName, targetMinutes: config.targetMinutes)
             }
 
             // Send slip notification
@@ -157,24 +162,45 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
 
     // MARK: - Per-App Blocking
 
-    /// Block a specific app due to exceeding Don't Do limit
-    private func blockAppForFailure(appTokenData: Data) {
-        // Decode the ApplicationToken from data
-        guard let appToken = try? PropertyListDecoder().decode(ApplicationToken.self, from: appTokenData) else {
+    /// Block a specific app due to exceeding Don't Do limit.
+    /// Uses the failure store (separate from schedule store) — persists until midnight.
+    private func blockAppForFailure(appTokenData: Data, habitId: String, habitName: String, targetMinutes: Int) {
+        // appTokenData is a PropertyList-encoded Set<ApplicationToken> (can contain multiple apps)
+        // Fall back to single token decoding for backward compatibility
+        let appTokens: Set<ApplicationToken>
+        if let tokenSet = try? PropertyListDecoder().decode(Set<ApplicationToken>.self, from: appTokenData) {
+            appTokens = tokenSet
+        } else if let singleToken = try? PropertyListDecoder().decode(ApplicationToken.self, from: appTokenData) {
+            appTokens = [singleToken]
+        } else {
             return
         }
 
-        // Add the app to the shields
-        var currentApps = store.shield.applications ?? Set()
-        currentApps.insert(appToken)
-        store.shield.applications = currentApps
+        guard !appTokens.isEmpty else { return }
 
-        // Also save to shared defaults so the main app can track and clear at midnight
+        // Add apps to the failure store (separate from schedule shields)
+        var currentApps = failureStore.shield.applications ?? Set()
+        currentApps.formUnion(appTokens)
+        failureStore.shield.applications = currentApps
+
+        // Save individual token data to shared defaults so the main app can track and clear
         let defaults = UserDefaults(suiteName: Self.appGroupID) ?? .standard
         var blockedAppsData = defaults.array(forKey: Self.failureBlockedAppsKey) as? [Data] ?? []
-        if !blockedAppsData.contains(appTokenData) {
-            blockedAppsData.append(appTokenData)
-            defaults.set(blockedAppsData, forKey: Self.failureBlockedAppsKey)
+        // Store each token individually for the main app's loadFailureBlockedApps()
+        for token in appTokens {
+            if let tokenData = try? PropertyListEncoder().encode(token),
+               !blockedAppsData.contains(tokenData) {
+                blockedAppsData.append(tokenData)
+            }
+        }
+        defaults.set(blockedAppsData, forKey: Self.failureBlockedAppsKey)
+
+        // Store habit info for shield message and Block tab banner
+        var habitInfo = defaults.array(forKey: "failureBlockedHabitInfo") as? [[String: Any]] ?? []
+        let entry: [String: Any] = ["habitId": habitId, "habitName": habitName, "targetMinutes": targetMinutes]
+        if !habitInfo.contains(where: { ($0["habitId"] as? String) == habitId }) {
+            habitInfo.append(entry)
+            defaults.set(habitInfo, forKey: "failureBlockedHabitInfo")
         }
     }
 

@@ -1,12 +1,16 @@
 import SwiftUI
+import Combine
 
 /// Hero status card showing blocking state, time remaining, and master toggle
 struct BlockStatusCard: View {
+    @Environment(\.scenePhase) private var scenePhase
     @State private var blockSettings = BlockSettings.shared
     @State private var screenTimeManager = ScreenTimeManager.shared
     @State private var showingEnableWarning = false
+    @State private var refreshTick = false
 
     var body: some View {
+        let _ = refreshTick
         let isLocked = blockSettings.isEnabled && blockSettings.isCurrentlyActive
 
         VStack(spacing: 16) {
@@ -124,6 +128,12 @@ struct BlockStatusCard: View {
             } else {
                 screenTimeManager.disableBlocking()
             }
+        }
+        .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { _ in
+            refreshTick.toggle()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active { refreshTick.toggle() }
         }
     }
 

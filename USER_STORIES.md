@@ -23,7 +23,7 @@ Status: [x] done | [~] partial | [ ] planned
   - Acceptance: User can skip this prompt if they don't have tasks to add
 - [x] As a user, I can quickly brain-dump all the one-off tasks in my head (book GP, buy groceries, call mum)
   - Acceptance: Tasks are stored, appear in today view, and can be ticked off throughout the day. Getting them out of my head relieves the mental pressure that causes procrastination. Once completed, tasks move to the Done section. At end of day, completed today tasks are permanently deleted and do NOT reappear the next morning
-  - **BUG: Completed today tasks reappear in the today list the next morning instead of being permanently deleted overnight.**
+  - ~~BUG: Completed today tasks reappear in the today list the next morning instead of being permanently deleted overnight.~~ **FIXED** — Cleanup now runs on every app launch (not just day transitions) and checks completion on any day, not just the creation day.
 - [x] As a user, when I feel like procrastinating I can look at my today tasks and pick off a quick one instead of opening a distracting app
 
 ## Habits & Tasks
@@ -91,15 +91,30 @@ Status: [x] done | [~] partial | [ ] planned
 ## App Blocking
 
 - [x] As a user, I can select which apps and websites to block
+  - Acceptance: App selection requires tapping Save before changes take effect. Draft selection shown in UI but shields not updated until saved.
 - [x] As a user, I can set a blocking schedule (which days and times)
-  - Acceptance: Apps are ONLY blocked during scheduled hours. Outside the schedule, apps must be fully accessible with no shields. If schedule is 9AM-9PM, apps must be free at 9:01PM and must not randomly re-block before the next 9AM
-  - **BUG: Blocking re-activates outside scheduled hours. Also blocks when the master toggle is disabled.**
+  - Acceptance: Apps are ONLY blocked during scheduled hours when blocking is enabled. Outside the schedule, apps must be fully accessible with no shields. Schedule edits require tapping Save before they take effect. If schedule is 9AM-9PM, apps must be free at 9:01PM and must not randomly re-block before the next 9AM.
+  - ~~BUG: Blocking re-activates outside scheduled hours. Also blocks when the master toggle is disabled.~~ **FIXED** — Schedule shields use a dedicated ManagedSettingsStore. Extension checks isEnabled from App Group defaults. Foreground reconciliation removes stale shields on every app resume.
 - [x] As a user, I cannot easily bypass blocking — it requires conscious effort
-  - Acceptance: Shield appears → tap unlock → notification opens Sown → 10-second wait showing today's tasks → write admission statement → then unlocked
+  - Acceptance: Shield appears → tap unlock → notification opens Sown → 10-second wait showing today's tasks → write admission statement → then unlocked. Unlock flow only appears during active schedule blocking.
 - [x] As a user, the blocking runs on a schedule independent of my habit completion
 - [x] As a user, when I unlock apps they are only unlocked for 5 minutes, then blocking resumes
-  - Acceptance: After 5 minutes the app must be forcibly closed / shield must re-engage immediately — NOT just block on next launch. The user should be kicked off the app, not allowed to keep using it indefinitely
-  - **BUG: After 5-minute unlock expires, user can keep using the app until they leave it. Should kick them off immediately.**
+  - Acceptance: After 5 minutes the app must be forcibly closed / shield must re-engage immediately — NOT just block on next launch. The user should be kicked off the app, not allowed to keep using it indefinitely. If the schedule ends during the unlock period, shields do not re-apply.
+  - ~~BUG: After 5-minute unlock expires, user can keep using the app until they leave it. Should kick them off immediately.~~ **PARTIALLY FIXED** — Unlock now tracks expiry timestamps to prevent stale timers from previous unlocks re-blocking prematurely. Shields re-apply after timeout. Full force-close on expiry still pending (iOS limitation with opaque tokens).
+- [x] As a user, when a Don't-Do habit limit is exceeded, the app is blocked until midnight
+  - Acceptance: Failure-blocked apps use a separate ManagedSettingsStore that persists until midnight regardless of schedule. Shield shows a custom message: habit name, limit exceeded, blocked until midnight. Block tab shows a failure-block banner with the same info. Cleared at midnight by clearFailureBlocks(). Disabling the blocking toggle also clears failure blocks.
+
+### Blocking UI
+- [x] As a user, I must tap Save to apply schedule and app selection changes
+  - Acceptance: Edits to days/times and app selections are buffered in local draft state. Save commits changes and updates monitoring. Discard reverts to current settings. Unsaved changes indicator shown on the card. Border highlights amber when unsaved.
+- [x] As a user, I cannot change the blocking schedule for the current day while blocking is active
+  - Acceptance: Current day's circle turns red with a padlock. Time pickers are disabled. Other days remain editable. Unlocks when the schedule window ends.
+- [x] As a user, the blocking status updates live while I'm on the Block tab
+  - Acceptance: Time remaining counts down every minute. Status flips from "Blocking Active" (red/locked) to "Blocking Enabled" (green/toggle) when the schedule window ends, without needing to leave and return.
+- [x] As a user, the blocking status refreshes when I return to the app
+  - Acceptance: If I leave Sown during blocking and return after the schedule ended, the UI correctly shows the schedule has ended. Foreground reconciliation ensures shields match current schedule state.
+- [x] As a user, I see a banner on the Block tab when apps are failure-blocked
+  - Acceptance: Red-tinted card shows habit name, limit exceeded, and "blocked until midnight". Disappears when failure blocks clear at midnight.
 
 ### Blocking — Planned
 
@@ -115,7 +130,7 @@ Status: [x] done | [~] partial | [ ] planned
 - [x] As a user, I can set my wake and bed times to customize when reminders arrive
 - [x] As a user, I do NOT receive notifications for don't-do habits
   - Acceptance: Don't-dos should never send reminders. Reminding the user about Instagram makes them think about Instagram. The whole point is to forget about it and focus on other things
-  - **BUG: Don't-do habits are sending notifications. They should be excluded from all reminder scheduling.**
+  - ~~BUG: Don't-do habits are sending notifications. They should be excluded from all reminder scheduling.~~ **FIXED** — Added `type != .negative` filter to notification scheduling.
 
 ## HealthKit Integration
 

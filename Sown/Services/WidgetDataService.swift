@@ -40,13 +40,27 @@ enum WidgetDataService {
             WidgetTask(id: habit.id, name: habit.name, isCompleted: habit.isCompleted(for: today))
         }
 
-        let mustDo = store.mustDoHabits.filter { $0.type == .positive }.map { habit in
+        // Must-do: standalone habits (not in groups) + groups as single items
+        let standaloneMustDo = store.standalonePositiveMustDoHabits.map { habit in
             WidgetTask(id: habit.id, name: habit.name, isCompleted: habit.isCompleted(for: today))
         }
+        let mustDoGroupTasks = store.mustDoGroups.map { group in
+            let completed = group.completedCount(habits: store.habits, for: today)
+            let name = "\(group.name) (\(completed) of \(group.requireCount))"
+            return WidgetTask(id: group.id, name: name, isCompleted: group.isSatisfied(habits: store.habits, for: today))
+        }
+        let mustDo = standaloneMustDo + mustDoGroupTasks
 
-        let niceToDo = store.niceToDoHabits.filter { $0.type == .positive }.map { habit in
+        // Nice-to-do: standalone habits (not in groups) + groups as single items
+        let standaloneNiceToDo = store.standalonePositiveNiceToDoHabits.map { habit in
             WidgetTask(id: habit.id, name: habit.name, isCompleted: habit.isCompleted(for: today))
         }
+        let niceToDoGroupTasks = store.niceToDoGroups.map { group in
+            let completed = group.completedCount(habits: store.habits, for: today)
+            let name = "\(group.name) (\(completed) of \(group.requireCount))"
+            return WidgetTask(id: group.id, name: name, isCompleted: group.isSatisfied(habits: store.habits, for: today))
+        }
+        let niceToDo = standaloneNiceToDo + niceToDoGroupTasks
 
         let allItems = todayTaskItems + mustDo + niceToDo
         let data = WidgetHabitData(

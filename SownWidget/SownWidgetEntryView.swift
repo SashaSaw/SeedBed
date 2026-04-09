@@ -73,6 +73,33 @@ struct SownWidgetLargeView: View {
         return formatter.string(from: Date())
     }
 
+    private var allocatedItems: (today: [WidgetTask], mustDo: [WidgetTask], niceToDo: [WidgetTask]) {
+        let totalBudget = 8
+
+        let incompleteTodayTasks = data.todayTasks.filter { !$0.isCompleted }
+        let incompleteMustDo = data.mustDoTasks.filter { !$0.isCompleted }
+        let incompleteNiceToDo = data.niceToDoTasks.filter { !$0.isCompleted }
+
+        let todayAlloc = min(incompleteTodayTasks.count, 3)
+        let remaining1 = totalBudget - todayAlloc
+        let mustDoAlloc = min(incompleteMustDo.count, remaining1)
+        let remaining2 = remaining1 - mustDoAlloc
+        let niceToDoAlloc = min(incompleteNiceToDo.count, remaining2)
+
+        return (
+            today: Array(incompleteTodayTasks.prefix(todayAlloc)),
+            mustDo: Array(incompleteMustDo.prefix(mustDoAlloc)),
+            niceToDo: Array(incompleteNiceToDo.prefix(niceToDoAlloc))
+        )
+    }
+
+    private var isAllDone: Bool {
+        data.totalCount > 0 &&
+        data.todayTasks.allSatisfy(\.isCompleted) &&
+        data.mustDoTasks.allSatisfy(\.isCompleted) &&
+        data.niceToDoTasks.allSatisfy(\.isCompleted)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             // Top row: date on left, streak + blocking on right
@@ -102,46 +129,45 @@ struct SownWidgetLargeView: View {
             Divider()
                 .overlay(WidgetTheme.completedGray.opacity(0.4))
 
+            let items = allocatedItems
+
             // Today Tasks section (one-off tasks)
-            let incompleteTodayTasks = data.todayTasks.filter { !$0.isCompleted }
-            if !incompleteTodayTasks.isEmpty {
+            if !items.today.isEmpty {
                 Text("Today")
                     .font(WidgetTheme.handwritten(14))
                     .foregroundStyle(WidgetTheme.successGreen)
 
-                ForEach(Array(incompleteTodayTasks.prefix(3)), id: \.id) { task in
+                ForEach(items.today, id: \.id) { task in
                     taskRow(task)
                 }
             }
 
-            // Must Do section (remaining incomplete)
-            let incompleteMustDo = data.mustDoTasks.filter { !$0.isCompleted }
-            if !incompleteMustDo.isEmpty {
+            // Must Do section
+            if !items.mustDo.isEmpty {
                 Text("Must Do")
                     .font(WidgetTheme.handwritten(14))
                     .foregroundStyle(WidgetTheme.amber)
-                    .padding(.top, incompleteTodayTasks.isEmpty ? 0 : 2)
+                    .padding(.top, items.today.isEmpty ? 0 : 2)
 
-                ForEach(Array(incompleteMustDo.prefix(3)), id: \.id) { task in
+                ForEach(items.mustDo, id: \.id) { task in
                     taskRow(task)
                 }
             }
 
-            // Nice To Do section (remaining incomplete)
-            let incompleteNiceToDo = data.niceToDoTasks.filter { !$0.isCompleted }
-            if !incompleteNiceToDo.isEmpty {
+            // Nice To Do section
+            if !items.niceToDo.isEmpty {
                 Text("Nice To Do")
                     .font(WidgetTheme.handwritten(14))
                     .foregroundStyle(WidgetTheme.navy.opacity(0.6))
                     .padding(.top, 2)
 
-                ForEach(Array(incompleteNiceToDo.prefix(2)), id: \.id) { task in
+                ForEach(items.niceToDo, id: \.id) { task in
                     taskRow(task)
                 }
             }
 
             // All done state
-            if incompleteTodayTasks.isEmpty && incompleteMustDo.isEmpty && incompleteNiceToDo.isEmpty && data.totalCount > 0 {
+            if isAllDone {
                 Spacer()
                 Text("✓ All done!")
                     .font(WidgetTheme.handwritten(18))

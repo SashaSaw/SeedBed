@@ -247,6 +247,14 @@ final class HabitStore {
         niceToDoHabits.filter { $0.type == .positive && !$0.isTask }
     }
 
+    /// Positive nice-to-do habits not in any group (excludes negative)
+    var standalonePositiveNiceToDoHabits: [Habit] {
+        let groupedHabitIds = Set(niceToDoGroups.flatMap { $0.habitIds })
+        return niceToDoHabits.filter {
+            !groupedHabitIds.contains($0.id) && $0.type == .positive
+        }
+    }
+
     /// Uncompleted one-off tasks: created today OR rolled over from previous days, excluding completed
     var todayVisibleTasks: [Habit] {
         let calendar = Calendar.current

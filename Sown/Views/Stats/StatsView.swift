@@ -490,6 +490,14 @@ struct HabitBarChartCard: View {
         }
     }
 
+    /// Upper bound for the chart y-axis — max of target and actual values, with
+    /// 10% headroom so bars never overflow the card when the user blows past goal.
+    private var yAxisUpperBound: Double {
+        let maxValue = dataPoints.compactMap { $0.value }.max() ?? 0
+        let baseline = max(targetValue ?? 100, maxValue)
+        return baseline > 0 ? baseline * 1.1 : 100
+    }
+
     /// Target value from HealthKit or success criteria
     private var targetValue: Double? {
         // Check HealthKit target first
@@ -566,7 +574,7 @@ struct HabitBarChartCard: View {
                         }
                 }
             }
-            .chartYScale(domain: 0...(targetValue ?? 100))
+            .chartYScale(domain: 0...yAxisUpperBound)
             .chartYAxis {
                 AxisMarks { _ in
                     AxisValueLabel()

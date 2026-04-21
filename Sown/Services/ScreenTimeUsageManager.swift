@@ -119,6 +119,22 @@ final class ScreenTimeUsageManager {
     func stopMonitoringHabit(_ habit: Habit) {
         let activityName = DeviceActivityName(rawValue: "\(habitActivityPrefix)\(habit.id.uuidString)")
         activityCenter.stopMonitoring([activityName])
+        removeConfig(forHabitId: habit.id.uuidString)
+    }
+
+    /// Remove a single habit's config from shared defaults so the extension
+    /// can no longer act on it if a stale DeviceActivity event fires.
+    private func removeConfig(forHabitId habitId: String) {
+        guard let data = sharedDefaults.data(forKey: Self.configsKey),
+              var configs = try? JSONDecoder().decode([HabitScreenTimeConfig].self, from: data) else {
+            return
+        }
+        configs.removeAll { $0.habitId == habitId }
+        if configs.isEmpty {
+            sharedDefaults.removeObject(forKey: Self.configsKey)
+        } else if let encoded = try? JSONEncoder().encode(configs) {
+            sharedDefaults.set(encoded, forKey: Self.configsKey)
+        }
     }
 
     // MARK: - Shared Defaults

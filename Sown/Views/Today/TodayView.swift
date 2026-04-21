@@ -708,10 +708,8 @@ struct TodayContentView: View {
     private func setupScreenTimeObserver() {
         guard screenTimeManager.isAuthorized else { return }
 
-        let linkedHabits = store.screenTimeLinkedHabits
-        guard !linkedHabits.isEmpty else { return }
-
-        // Start monitoring all linked habits
+        // Always call through — this reconciles monitored activities with the
+        // current habit list and clears orphaned schedules from deleted habits.
         store.startScreenTimeMonitoring()
 
         // Check for any completions that happened while app was closed

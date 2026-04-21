@@ -407,6 +407,13 @@ final class HabitStore {
             }
         }
 
+        // Tear down Screen Time monitoring so a stale DeviceActivity event
+        // can't trigger a failure block after the habit is gone.
+        if habit.isScreenTimeLinked {
+            ScreenTimeUsageManager.shared.stopMonitoringHabit(habit)
+        }
+        ScreenTimeManager.shared.clearFailureBlock(forHabitId: habit.id.uuidString)
+
         // Remove from any groups
         for group in groups where group.habitIds.contains(habit.id) {
             group.habitIds.removeAll { $0 == habit.id }
@@ -1290,7 +1297,9 @@ final class HabitStore {
         // refreshNotifications() above already handles rescheduling
     }
 
-    /// Start monitoring Screen Time for all linked habits (positive and negative)
+    /// Start monitoring Screen Time for all linked habits (positive and negative).
+    /// Always calls through, even with an empty list, so stale DeviceActivity
+    /// schedules from deleted habits get cleared on launch.
     func startScreenTimeMonitoring() {
         guard ScreenTimeManager.shared.isAuthorized else { return }
 
@@ -1299,7 +1308,6 @@ final class HabitStore {
         let negativeLinked = negativeHabits.filter { $0.isScreenTimeLinked }
         let allLinked = Array(Set(positiveLinked + negativeLinked))
 
-        guard !allLinked.isEmpty else { return }
         ScreenTimeUsageManager.shared.startMonitoringHabits(allLinked)
     }
 

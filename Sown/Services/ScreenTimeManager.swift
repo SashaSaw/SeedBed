@@ -234,6 +234,18 @@ final class ScreenTimeManager {
         for id in staleIds {
             clearFailureBlock(forHabitId: id)
         }
+
+        // Enforce the invariant: no habit info → no blocked apps → no failure shield.
+        // Catches orphans where info was emptied but tokens or the OS-level shield linger.
+        let remaining = sharedDefaults.array(forKey: "failureBlockedHabitInfo") as? [[String: Any]] ?? []
+        if remaining.isEmpty {
+            let tokenCount = (sharedDefaults.array(forKey: Self.failureBlockedAppsKey) as? [Data] ?? []).count
+            if tokenCount > 0 || failureStore.shield.applications != nil {
+                failureBlockedApps.removeAll()
+                saveFailureBlockedApps()
+                removeFailureShields()
+            }
+        }
     }
 
     /// Sync failure-blocked apps from extension (call on app become active).

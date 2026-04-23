@@ -101,9 +101,7 @@ struct ContentView: View {
                     .onAppear {
                         // Refresh notifications on app launch with current habit state
                         store.refreshNotifications()
-                        // Clean up failure blocks for deleted habits
-                        let existingIds = Set(store.allHabits.map { $0.id.uuidString })
-                        ScreenTimeManager.shared.cleanupStaleFailureBlocks(existingHabitIds: existingIds)
+                        sweepStaleFailureBlocks(store: store)
                         // Check if launched from shield
                         checkAndShowIntercept()
                         // Check for pending notification navigation
@@ -111,6 +109,9 @@ struct ContentView: View {
                     }
                     .onChange(of: scenePhase) { _, newPhase in
                         if newPhase == .active {
+                            // Sweep orphans BEFORE reconcileShields, so syncFailureBlockedApps
+                            // doesn't re-apply a stale shield from defaults.
+                            sweepStaleFailureBlocks(store: store)
                             // Reconcile shield state with current schedule
                             ScreenTimeManager.shared.reconcileShields()
                             // Check if returning from a shield tap
@@ -183,6 +184,14 @@ struct ContentView: View {
                     }
             }
         }
+    }
+
+    /// Sweep failure-block state for habits that no longer exist. Run on every
+    /// foreground (not just first appear) so an orphaned shield can't survive
+    /// across backgrounding.
+    private func sweepStaleFailureBlocks(store: HabitStore) {
+        let existingIds = Set(store.allHabits.map { $0.id.uuidString })
+        ScreenTimeManager.shared.cleanupStaleFailureBlocks(existingHabitIds: existingIds)
     }
 
     /// Check if the shield action sent us an intercept request via App Group.
